@@ -199,3 +199,82 @@ test('design preview at normal and minimum desktop widths has no horizontal over
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/design-compact.png', fullPage: true });
 });
+
+test('all four themes apply to the whole app and the selected theme survives reload', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('#settings-view')).toBeVisible();
+  await expect(page.locator('#library-view')).toBeHidden();
+  const backgrounds = new Set();
+  for (const theme of ['night', 'nord', 'sakura', 'cream']) {
+    await page.locator(`input[name="theme"][value="${theme}"]`).check();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    backgrounds.add(await page.locator('body').evaluate(e => getComputedStyle(e).backgroundColor));
+    expect(await page.locator('.artwork').count()).toBe(0);
+  }
+  expect(backgrounds.size).toBe(4);
+  expect(await page.locator('html').evaluate(e => getComputedStyle(e).colorScheme)).toBe('light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'cream');
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.screenshot({ path: 'test-results/settings-cream.png', fullPage: true });
+  await page.locator('input[name="theme"][value="sakura"]').check();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.screenshot({ path: 'test-results/settings-sakura.png', fullPage: true });
+});
+
+test('economy mode and quality persist for an empty library and limit rendering', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="profile"][value="economy"]').check();
+  await expect(page.locator('#default-quality')).toHaveValue('480');
+  await expect(page.locator('body')).toHaveClass(/economy-mode/);
+  await expect(page.locator('#animations-setting')).toBeDisabled();
+  await page.reload();
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('input[name="profile"][value="economy"]')).toBeChecked();
+  await expect(page.locator('#default-quality')).toHaveValue('480');
+  await page.locator('#default-quality').selectOption('720');
+  await page.reload();
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('#default-quality')).toHaveValue('720');
+  const titles = Array.from({ length: 40 }, (_, i) => ({ ...anime([source('first')]), id: `economy-${i}`, title: `История ${i}` }));
+  await page.locator('#import-file').setInputFiles({ name: 'library.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(titles)) });
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await expect(page.locator('.anime-card')).toHaveCount(12);
+  await page.locator('#load-more').click();
+  await expect(page.locator('.anime-card')).toHaveCount(24);
+});
+
+test('changing mode does not restart or unpause the current video', async ({ page }) => {
+  const title = anime([source('first'), { ...source('low'), quality: 480 }]);
+  await seed(page, [title]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await page.locator('video').evaluate(video => { video.pause(); video.dataset.original = 'yes'; });
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="profile"][value="economy"]').check();
+  await expect(page.locator('video')).toHaveAttribute('data-original', 'yes');
+  await expect(page.locator('video')).toHaveJSProperty('paused', true);
+  await expect(page.locator('#quality')).toHaveValue('1080');
+  await expect(page.locator('#default-quality')).toHaveValue('480');
+  await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('480p · воспроизведение');
+});
+
+test('automatic next episode can be disabled without disabling manual next', async ({ page }) => {
+  await seed(page, [anime([source('first')])]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#auto-next-setting').uncheck();
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await page.locator('video').evaluate(video => { video.currentTime = video.duration - 0.1; });
+  await expect(page.locator('#playback-status')).toContainText('Серия закончилась');
+  await expect(page.locator('#playing-title')).toContainText('Серия 1');
+  await page.locator('#next-button').click();
+  await expect(page.locator('#playing-title')).toContainText('Серия 2');
+});

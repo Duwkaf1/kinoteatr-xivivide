@@ -11,6 +11,9 @@ const paths = {
   spark: ['m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4Z'],
   info: ['M12 8h.01M12 11v6', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'],
   arrow: ['M5 12h14m-5-5 5 5-5 5'],
+  settings: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', 'm10 2-.7 2.3-2 .9-2.3-.7L2.7 8l1.6 1.8v2.4L2.7 14.5 5 18l2.3-.7 2 .9.7 3.8h4l.7-3.8 2-.9 2.3.7 2.3-3.5-1.6-2.3V9.8L21.3 8 19 4.5l-2.3.7-2-.9L14 2Z'],
+  balance: ['M4 7h16M4 17h16M9 3v8m6 2v8'],
+  leaf: ['M20 3C9 2 3 7 5 14c2 7 14 6 15-11ZM4 21l10-10'],
 };
 export function icon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

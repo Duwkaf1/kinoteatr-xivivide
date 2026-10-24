@@ -28,6 +28,16 @@ try {
     return { sandbox: preferences.sandbox, nodeIntegration: preferences.nodeIntegration, contextIsolation: preferences.contextIsolation, webSecurity: preferences.webSecurity };
   });
   assert.deepEqual(security, { sandbox: true, nodeIntegration: false, contextIsolation: true, webSecurity: true });
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="theme"][value="cream"]').check();
+  await page.locator('input[name="profile"][value="balanced"]').check();
+  await page.locator('#default-quality').selectOption('1080');
+  await page.reload();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'cream' && document.querySelector('#hero-button').onclick !== null);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  assert.equal(await page.locator('input[name="profile"][value="balanced"]').isChecked(), true);
+  assert.equal(await page.locator('#default-quality').inputValue(), '1080');
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проверка desktop');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.invalid/desktop.webm');
@@ -51,7 +61,7 @@ try {
   assert.equal(await sourcePage.evaluate(() => typeof window.require), 'undefined');
   assert.deepEqual(errors, []);
   const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-  console.log(`PASS: Electron ${version}; file renderer, preload, isolation, IPC, add/reload persistence, real WebM playback, isolated source window`);
+  console.log(`PASS: Electron ${version}; file renderer, themes/settings persistence, preload, isolation, IPC, add/reload persistence, real WebM playback, isolated source window`);
   // Closing the main window must also close sources and exit cleanly.
   const exited = application.waitForEvent('close');
   await page.close();

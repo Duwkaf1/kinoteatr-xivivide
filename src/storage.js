@@ -5,8 +5,7 @@ export const emptyState = () => ({ titles: [], favorites: [], progress: {}, qual
 export function loadState(storage = localStorage) {
   try {
     const raw = storage.getItem(KEY);
-    if (!raw) return { state: emptyState() };
-    const data = JSON.parse(raw);
+    const data = raw ? JSON.parse(raw) : emptyState();
     const playbackRaw = storage.getItem(PLAYBACK_KEY);
     if (playbackRaw) {
       const playback = JSON.parse(playbackRaw);

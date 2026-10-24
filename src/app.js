@@ -1,10 +1,12 @@
 import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL } from './core.js';
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
+import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion } from './preferences.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
 const state = loaded.state;
+const preferences = loadPreferences();
 let writable = !loaded.error;
 let view = 'library';
 let active = null;
@@ -17,26 +19,55 @@ let cleanup = () => {};
 let toastTimer;
 let resumeAt = 0;
 let lastSave = 0;
-const PAGE_SIZE = 24;
-let visibleCount = PAGE_SIZE;
+const pageSize = () => profileConfig(preferences.profile).pageSize;
+let visibleCount = pageSize();
 let searchTimer;
 let hlsModule;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 decorateIcons();
-try { document.body.classList.toggle('less-motion', localStorage.getItem('kadr.less-motion') === 'true'); } catch { /* Preferences are optional. */ }
-$('#motion-toggle').setAttribute('aria-pressed', String(document.body.classList.contains('less-motion')));
+function applyPreferences() {
+  document.documentElement.dataset.theme = preferences.theme;
+  document.body.dataset.profile = preferences.profile;
+  const reduce = shouldReduceMotion(preferences, reducedMotion.matches);
+  document.body.classList.toggle('less-motion', reduce);
+  document.body.classList.toggle('economy-mode', preferences.profile === 'economy');
+  if (reduce) for (const animation of document.getAnimations()) animation.cancel();
+  $('#motion-toggle').setAttribute('aria-pressed', String(!preferences.animations || preferences.profile === 'economy'));
+  $('#motion-toggle').disabled = preferences.profile === 'economy';
+  $('#animations-setting').checked = preferences.animations;
+  $('#animations-setting').disabled = preferences.profile === 'economy';
+  $('#animations-hint').textContent = preferences.profile === 'economy' ? 'В режиме «Экономия» эффекты отключены.' : reducedMotion.matches ? 'Эффекты отключены системной настройкой уменьшения движения.' : 'Учитывается системная настройка уменьшения движения.';
+  $('#auto-next-setting').checked = preferences.autoNext;
+  $('#default-quality').value = String(state.quality);
+  $('#quality').value = String(active?.quality ?? state.quality);
+  for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
+  for (const input of document.querySelectorAll('input[name="profile"]')) input.checked = input.value === preferences.profile;
+  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Экономия' }[preferences.profile];
+  $('#footer-mode').textContent = `${label} · ${state.quality}p по умолчанию · Без скачивания серий`;
+}
+function storePreferences() {
+  try { savePreferences(preferences); $('#settings-save-status').textContent = 'Настройки сохранены'; }
+  catch { $('#settings-save-status').textContent = 'Не удалось сохранить настройки. Проверь свободное место.'; toast('Настройки применены только до закрытия приложения: сохранение недоступно.'); }
+}
 $('#motion-toggle').onclick = () => {
-  const enabled = document.body.classList.toggle('less-motion');
-  if (enabled) for (const animation of document.getAnimations()) animation.cancel();
-  $('#motion-toggle').setAttribute('aria-pressed', String(enabled));
-  try { localStorage.setItem('kadr.less-motion', String(enabled)); } catch { /* Storage may be full. */ }
+  preferences.animations = !preferences.animations; applyPreferences(); storePreferences();
 };
-const motionEnabled = () => !reducedMotion.matches && !document.body.classList.contains('less-motion');
+const motionEnabled = () => !shouldReduceMotion(preferences, reducedMotion.matches);
 function reveal(element) {
   if (motionEnabled()) element.animate([{ opacity: 0, transform: 'translateY(7px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 190, easing: 'ease-out' });
 }
-reducedMotion.addEventListener('change', event => { if (event.matches) for (const animation of document.getAnimations()) animation.cancel(); });
+reducedMotion.addEventListener('change', applyPreferences);
 $('#view-title').tabIndex = -1;
+for (const input of document.querySelectorAll('input[name="theme"]')) input.onchange = () => { preferences.theme = input.value; applyPreferences(); storePreferences(); };
+for (const input of document.querySelectorAll('input[name="profile"]')) input.onchange = () => {
+  preferences.profile = input.value;
+  state.quality = profileConfig(preferences.profile).quality;
+  visibleCount = pageSize(); persist(true); applyPreferences(); storePreferences(); renderLibrary();
+};
+$('#animations-setting').onchange = event => { preferences.animations = event.target.checked; applyPreferences(); storePreferences(); };
+$('#auto-next-setting').onchange = event => { preferences.autoNext = event.target.checked; applyPreferences(); storePreferences(); };
+$('#default-quality').onchange = event => { state.quality = Number(event.target.value); persist(true); applyPreferences(); $('#settings-save-status').textContent = writable ? 'Настройки сохранены' : 'Качество применено до закрытия приложения: сохранение недоступно.'; };
+applyPreferences();
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -132,22 +163,25 @@ const viewInfo = {
   favorites: ['Избранное', 'Истории, к которым хочется вернуться.'],
   history: ['Продолжить просмотр', 'Каждая история помнит, где ты остановился.'],
   sources: ['Источники', 'Подключения и их текущий статус.'],
+  settings: ['Настройки', 'Уютное оформление и подходящий режим просмотра.'],
 };
 function changeView(next) {
-  cancelAnimationFrame(searchTimer); view = next; visibleCount = PAGE_SIZE;
+  cancelAnimationFrame(searchTimer); view = next; visibleCount = pageSize();
   for (const item of document.querySelectorAll('[data-view]')) {
     item.classList.toggle('active', item.dataset.view === view);
     if (item.dataset.view === view) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
   }
   $('#view-title').textContent = viewInfo[view][0]; $('#view-description').textContent = viewInfo[view][1];
-  $('#sources-view').hidden = view !== 'sources'; $('#library-view').hidden = view === 'sources'; $('#search-label').hidden = view === 'sources';
+  const libraryVisible = ['library', 'favorites', 'history'].includes(view);
+  $('#sources-view').hidden = view !== 'sources'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
+  $('#settings-view').hidden = view !== 'settings';
   $('#hero').hidden = view !== 'library';
-  renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : $('#library-view'));
+  renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : view === 'settings' ? $('#settings-view') : $('#library-view'));
 }
 for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => changeView(button.dataset.view);
 $('#home-button').onclick = () => changeView('library');
-$('#load-more').onclick = () => { visibleCount += PAGE_SIZE; renderLibrary(); };
-$('#sort').onchange = () => { visibleCount = PAGE_SIZE; renderLibrary(); };
+$('#load-more').onclick = () => { visibleCount += pageSize(); renderLibrary(); };
+$('#sort').onchange = () => { visibleCount = pageSize(); renderLibrary(); };
 for (const source of EXAMPLE_SITES) {
   const card = node('article', undefined, 'source-card');
   card.append(node('span', 'ТРЕБУЕТ ПРОВЕРКИ', 'badge'), node('div', '↗', 'source-mark'), node('h2', source.name), node('p', new URL(source.url).hostname, 'source-host'), node('p', source.description, 'muted'));
@@ -173,7 +207,7 @@ $('#add-form').onsubmit = event => {
     validateLibrary([title]); state.titles.push(title); persist(); $('#add-dialog').close(); event.currentTarget.reset(); renderLibrary(); toast('Добавлено в библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
-$('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = PAGE_SIZE; searchTimer = requestAnimationFrame(renderLibrary); };
+$('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = pageSize(); searchTimer = requestAnimationFrame(renderLibrary); };
 $('#import-button').onclick = () => $('#import-file').click();
 $('#import-file').onchange = async event => {
   const file = event.target.files[0]; if (!file) return;
@@ -211,8 +245,8 @@ function openTitle(title) {
   startEpisode(title, episode, progress?.time ?? 0);
 }
 function startEpisode(title, episode, time) {
-  recordProgress(true); stopMedia(); active = { title, episode };
-  resumeAt = time; plan = new PlaybackPlan(episode.sources, state.quality);
+  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile) };
+  resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality);
   $('#player-section').hidden = false;
   $('#playing-title').textContent = `${title.title} · Серия ${episode.number}`;
   $('#quality').value = String(state.quality); $('#retry-button').hidden = true; episodeButtons();
@@ -230,8 +264,10 @@ function nextEpisode() {
 async function startSource() {
   stopMedia();
   const source = plan.current;
-  if (!source) { status(`Нет доступного источника с русской озвучкой в ${state.quality}p. Качество не снижено. Добавь резервный источник или повтори позже.`); $('#retry-button').hidden = false; return; }
+  if (!source) { status(`Нет доступного источника с русской озвучкой в ${active.quality}p. Качество не снижено. Добавь резервный источник или повтори позже.`); $('#retry-button').hidden = false; return; }
   const token = generation;
+  const targetQuality = active.quality;
+  const config = active.config;
   const element = node('video'); video = element;
   element.controls = true; element.preload = 'metadata'; element.playsInline = true;
   element.setAttribute('aria-label', 'Видеоплеер'); $('#video-host').append(element);
@@ -264,7 +300,7 @@ async function startSource() {
     recordProgress();
   });
   on('seeked', () => { resumeAt = element.currentTime; recordProgress(true); });
-  on('ended', () => { recordProgress(true); nextEpisode(); });
+  on('ended', () => { recordProgress(true); if (preferences.autoNext) nextEpisode(); else status('Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
     if (resumeAt > 0) element.currentTime = Number.isFinite(element.duration) ? Math.min(resumeAt, Math.max(0, element.duration - 0.5)) : resumeAt;
@@ -276,13 +312,13 @@ async function startSource() {
     catch { hlsModule = null; if (token === generation) { status('Не удалось загрузить модуль HLS. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
     if (token !== generation) return;
     if (!Hls.isSupported()) { status('В этой среде HLS не поддерживается. Попробуй приложение Windows или MP4.'); $('#retry-button').hidden = false; return; }
-    hls = new Hls({ autoStartLoad: false, maxBufferLength: 25, maxMaxBufferLength: 40, backBufferLength: 5, maxBufferSize: 30 * 1024 * 1024, enableWorker: true,
+    hls = new Hls({ autoStartLoad: false, maxBufferLength: config.maxBufferLength, maxMaxBufferLength: config.maxMaxBufferLength, backBufferLength: config.backBufferLength, maxBufferSize: config.maxBufferSize, enableWorker: true,
       manifestLoadPolicy: { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 12000, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });
     const engine = hls;
     engine.on(Hls.Events.MANIFEST_PARSED, () => {
       if (token !== generation) return;
-      const matching = engine.levels.findIndex(level => level.height === state.quality);
+      const matching = engine.levels.findIndex(level => level.height === targetQuality);
       // A master playlist with no matching rendition must not silently reduce quality.
       if (matching < 0 && (engine.levels.length > 1 || engine.levels[0]?.height > 0)) { fail(); return; }
       engine.currentLevel = matching >= 0 ? matching : 0;
@@ -323,7 +359,7 @@ document.addEventListener('keydown', event => {
 $('#close-player').onclick = () => { recordProgress(true); stopMedia(); setFocusMode(false); active = null; plan = null; $('#player-section').hidden = true; renderLibrary(); $('#view-title').focus({ preventScroll: true }); };
 $('#next-button').onclick = nextEpisode;
 $('#retry-button').onclick = () => { if (active) startEpisode(active.title, active.episode, resumeAt); };
-$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); if (active) startEpisode(active.title, active.episode, video?.currentTime || resumeAt); };
+$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); if (active) startEpisode(active.title, active.episode, video?.currentTime || resumeAt); applyPreferences(); };
 window.addEventListener('beforeunload', () => recordProgress(true));
 window.addEventListener('offline', () => toast('Нет соединения. При недоступности всех источников просмотр приостановится.'));
 window.addEventListener('online', () => { toast('Соединение восстановлено.'); if (active && !plan?.current) startEpisode(active.title, active.episode, resumeAt); });

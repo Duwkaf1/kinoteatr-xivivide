@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src https: blob:; connect-src 'self' https:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Кадр — аниме</title>
+    <script src="/theme-init.js"></script>
     <link rel="stylesheet" href="/src/style.css">
   </head>
   <body>
@@ -16,10 +17,11 @@
         <button data-view="favorites" class="nav" aria-label="Избранное"><span data-icon="heart"></span><span>Избранное</span><span id="favorite-count" class="nav-count">0</span></button>
         <button data-view="history" class="nav" aria-label="История"><span data-icon="history"></span><span>История</span></button>
         <button data-view="sources" class="nav" aria-label="Источники"><span data-icon="sources"></span><span>Источники</span></button>
+        <button data-view="settings" class="nav" aria-label="Настройки"><span data-icon="settings"></span><span>Настройки</span></button>
       </nav>
       <div class="sidebar-note"><span class="dot"></span> Только русская озвучка<p>AniDUB → AniLibria → другая русская</p></div>
       <button id="motion-toggle" class="motion-toggle" aria-pressed="false"><span data-icon="spark"></span> Меньше анимаций</button>
-      <div class="version">КАДР / РАННЯЯ ВЕРСИЯ 0.2</div>
+      <div class="version">КАДР / РАННЯЯ ВЕРСИЯ 0.3</div>
     </aside>
     <main>
       <header><div class="breadcrumb"><span class="header-dot"></span> ЛИЧНЫЙ КИНОЗАЛ <span>/</span> АНИМЕ</div><div class="header-actions"><button id="import-button" class="quiet"><span data-icon="import"></span>Импорт списка</button><button id="add-button" class="primary"><span aria-hidden="true">＋</span> Добавить аниме</button></div></header>
@@ -34,6 +36,26 @@
         <div id="source-cards" class="grid"></div>
         <div class="info-box"><h3>Как работает восстановление</h3><p>Для прямых видеоссылок: повторная попытка, затем другой источник той же серии. Выбранное качество сохраняется. При смене озвучки появится сообщение. При полном отказе источников воспроизведение остановится с объяснением.</p><p>Ссылка на страницу сайта не является прямой ссылкой на видео. Для каждого сайта нужен проверенный адаптер.</p></div>
       </section>
+      <section id="settings-view" hidden aria-label="Настройки приложения">
+        <div class="settings-intro"><span class="settings-orb" data-icon="settings"></span><div><p class="eyebrow">ПОДСТРОЙ ПОД СЕБЯ</p><h2>Твой комфорт — в деталях</h2><p class="muted">Оформление и режим просмотра сохраняются на этом устройстве.</p></div></div>
+        <fieldset class="settings-card"><legend>Оформление</legend><p class="settings-description">Четыре настроения для твоего вечера. Тема меняется сразу.</p><div class="theme-grid">
+          <label class="theme-choice"><input type="radio" name="theme" value="night"><span class="theme-preview preview-night"><span></span><span></span><span></span></span><span class="choice-title">Тёплая ночь</span><span class="choice-description">Графит и мягкий янтарь</span></label>
+          <label class="theme-choice"><input type="radio" name="theme" value="nord"><span class="theme-preview preview-nord"><span></span><span></span><span></span></span><span class="choice-title">Север</span><span class="choice-description">Сумерки и голубой лёд</span></label>
+          <label class="theme-choice"><input type="radio" name="theme" value="sakura"><span class="theme-preview preview-sakura"><span></span><span></span><span></span></span><span class="choice-title">Сакура</span><span class="choice-description">Слива и пыльная роза</span></label>
+          <label class="theme-choice"><input type="radio" name="theme" value="cream"><span class="theme-preview preview-cream"><span></span><span></span><span></span></span><span class="choice-title">Молочный</span><span class="choice-description">Светлая и спокойная</span></label>
+        </div></fieldset>
+        <fieldset class="settings-card"><legend>Качество и производительность</legend><p class="settings-description">Выбери подходящий режим. Разрешение можно настроить отдельно ниже.</p><div class="profile-grid">
+          <label class="profile-choice"><input type="radio" name="profile" value="quality"><span class="profile-icon" data-icon="spark"></span><span class="choice-title">Качество</span><span class="choice-description">1080p · буфер ≈ 30 секунд<br>Плавные эффекты и чёткая картинка</span></label>
+          <label class="profile-choice"><input type="radio" name="profile" value="balanced"><span class="profile-icon" data-icon="balance"></span><span class="choice-title">Баланс</span><span class="choice-description">720p · буфер ≈ 20 секунд<br>Комфортный повседневный просмотр</span></label>
+          <label class="profile-choice"><input type="radio" name="profile" value="economy"><span class="profile-icon" data-icon="leaf"></span><span class="choice-title">Экономия</span><span class="choice-description">480p · буфер ≈ 12 секунд<br>Меньше карточек, эффекты отключены</span></label>
+        </div><p class="settings-hint">Размер HLS-буфера ориентировочный и зависит от видео. Для MP4 буферизацией управляет сам плеер. Экономия уменьшает объём буфера и декорации интерфейса; нагрузка процессора зависит и от самого видео.</p></fieldset>
+        <section class="settings-card" aria-labelledby="playback-settings-title"><h3 id="playback-settings-title">Просмотр и удобство</h3>
+          <div class="setting-row"><div><label for="default-quality">Качество по умолчанию</label><p>Самостоятельно не снижается. Источник должен поддерживать выбранное разрешение.</p></div><select id="default-quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></div>
+          <div class="setting-row"><div><label for="animations-setting">Плавные анимации</label><p id="animations-hint">Учитывается системная настройка уменьшения движения.</p></div><input id="animations-setting" class="switch" type="checkbox" role="switch"></div>
+          <div class="setting-row"><div><label for="auto-next-setting">Следующая серия автоматически</label><p>После завершения серии продолжать просмотр по списку.</p></div><input id="auto-next-setting" class="switch" type="checkbox" role="switch"></div>
+        </section>
+        <div class="settings-bottom"><p>Настройки плеера применятся при следующем запуске видео. Текущий просмотр не прервётся.</p><span id="settings-save-status" role="status" aria-live="polite">Изменения сохраняются автоматически</span></div>
+      </section>
       <section id="player-section" hidden>
         <div class="player-heading"><div><p class="eyebrow">СЕЙЧАС В КАДРЕ</p><h2 id="playing-title"></h2></div><div class="player-heading-actions"><button id="focus-button" class="quiet" aria-pressed="false"><span data-icon="cinema"></span><span id="focus-label">Кинозал</span></button><button id="close-player" class="icon-button" aria-label="Закрыть плеер" title="Закрыть плеер"><span data-icon="close"></span></button></div></div>
         <div id="video-host"></div><p id="playback-status" role="status" aria-live="polite"></p>
@@ -42,7 +64,7 @@
         <div id="episode-list" class="episodes"></div>
         <details class="info-box"><summary>Демонстрация в Discord</summary><p>В установленном Discord выбери демонстрацию окна «Кадр» и включи передачу звука. Плеер использует обычный аудиовыход Windows. Не транслируй весь экран, если нужен только звук приложения.</p><p>Захват звука и изображения ещё нужно проверить на Windows. При проблемах с аппаратным ускорением запусти приложение с параметром --disable-gpu.</p></details>
       </section>
-      <footer><span>Твой прогресс сохраняется на этом устройстве</span><span>Качество без автоматического снижения · Без скачивания серий</span></footer>
+      <footer><span>Твой прогресс сохраняется на этом устройстве</span><span id="footer-mode">Качество без автоматического снижения · Без скачивания серий</span></footer>
     </main>
     <dialog id="add-dialog"><form id="add-form"><p class="eyebrow">НОВАЯ ИСТОРИЯ</p><h2>Добавить аниме</h2><p class="muted">Пока доступны прямые HTTPS-ссылки MP4, WebM и HLS. Подключение каталогов сайтов в работе.</p><label>Название<input name="title" required maxlength="160" placeholder="Название аниме"></label><label>Ссылка на видео<input name="url" type="url" required placeholder="https://…/episode.m3u8"></label><div class="form-row"><label>Озвучка<select name="voice"><option>AniDUB</option><option>AniLibria</option><option>Русская</option></select></label><label>Качество<select name="quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label></div><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-add" class="quiet">Отмена</button><button class="primary" type="submit">Добавить</button></div></form></dialog>
     <input id="import-file" type="file" accept="application/json,.json" hidden>
