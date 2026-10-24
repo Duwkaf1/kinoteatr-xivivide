@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<anime id="128"><titles>
+<title xml:lang="x-jat" type="main">Arcade Gamer Fubuki</title>
+<title xml:lang="x-jat" type="short">fubuki</title>
+<title xml:lang="ja" type="official">アーケードゲーマーふぶき</title>
+</titles>
+<characters><character id="63316" type="main character in" update="2014-01-22"><name>Sakuragasaki Fubuki</name>
+<picture>148922.jpg</picture>
+<seiyuu id="313" picture="17150.jpg">Nogawa Sakura</seiyuu>
+</character><character id="33992" type="secondary cast in" update="2011-06-27"><name>Melody Honey</name>
+<picture>74386.jpg</picture>
+<seiyuu id="356" picture="17197.jpg">Toyoguchi Megumi</seiyuu>
+</character><character id="63315" type="secondary cast in" update="2014-01-22"><name>Juumonji Chizuru</name>
+<picture>148923.jpg</picture>
+<seiyuu id="82" picture="34824.jpg">Asakawa Yuu</seiyuu>
+</character><character id="63317" type="secondary cast in" update="2014-01-22"><name>Kokubunji Hanako</name>
+<picture>148921.jpg</picture>
+<seiyuu id="56" picture="16651.jpg">Shimizu Kaori</seiyuu>
+</character></characters><episodes /></anime>

@@ -142,6 +142,17 @@
       <button id="edit-media" type="button" class="quiet manage-media"><span data-icon="import"></span>Добавить источник или перевод</button>
       <div class="shortcut-hint"><span><kbd>Пробел</kbd> пауза</span><span><kbd>←</kbd><kbd>→</kbd> <span id="seek-hint">10 сек</span></span><span><kbd>F</kbd> весь экран</span><span><kbd>M</kbd> звук</span></div>
     </dialog>
+    <dialog id="character-photo-dialog" aria-labelledby="character-photo-title">
+      <form id="character-photo-form">
+        <p class="eyebrow">ЛИЦА ИСТОРИИ</p><h2 id="character-photo-title">Фотография персонажа</h2><p id="character-photo-name" class="muted"></p>
+        <label for="character-photo-query">Имя персонажа</label><div class="poster-url-row"><input id="character-photo-query" maxlength="100" placeholder="Имя на русском или английском" autocomplete="off"><button id="character-photo-find" type="button" class="quiet">Найти</button></div>
+        <p id="character-photo-status" role="status"></p><div id="character-photo-results"></div>
+        <label for="character-photo-url">Или своя ссылка на фотографию</label><input id="character-photo-url" type="url" maxlength="2048" placeholder="https://…/character.jpg">
+        <div id="character-photo-preview"></div><p class="character-photo-credit">Поиск фотографий в MyAnimeList через Jikan. Проверяй имя и изображение перед сохранением.</p>
+        <p id="character-photo-error" role="alert"></p>
+        <div class="dialog-actions"><button id="character-photo-reset" type="button" class="quiet">Исходное фото</button><button id="character-photo-cancel" type="button" class="quiet">Отмена</button><button type="submit" class="primary">Сохранить фото</button></div>
+      </form>
+    </dialog>
     <dialog id="media-dialog" aria-labelledby="media-dialog-title"><h2 id="media-dialog-title">Источники и варианты перевода</h2><p id="media-episode-title" class="muted"></p><p class="muted">Плеер сайта открывается отдельно: его серии, дорожки и позиция управляются самим сайтом. Настройки встроенных плееров к нему не применяются.</p>
       <details open><summary>Добавить источник / плеер</summary><div id="existing-media" class="entry-list"></div><form id="add-source-form">
         <label>Название источника<input name="label" required maxlength="120" placeholder="Например, основной сервер"></label><label>Тип источника<select name="kind"><option value="video">Прямая видеоссылка</option><option value="web">Плеер сайта</option></select></label><label>Ссылка<input name="url" type="url" required placeholder="https://…/episode.m3u8"></label>

@@ -102,18 +102,27 @@ try {
   await page.locator('video').evaluate(v => { v.currentTime = 1; });
   await page.waitForFunction(() => { const canvas = document.querySelector('#video-host canvas'); return canvas && [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].some((n, i) => i % 4 === 3 && n > 0); }, undefined, { timeout: 10000 });
   await page.locator('#cast-panel > summary').click(); await page.locator('#anidb-id').fill('123'); await page.locator('#bind-anidb').click();
+  const portrait = await readFile(path.join(root, 'test/fixtures/character-photo.svg'));
+  await page.route('https://cdn.anidb.net/images/main/native-character.jpg', route => route.fulfill({ contentType: 'image/svg+xml', body: portrait }));
+  await page.route('https://photos.example.invalid/character.jpg', route => route.fulfill({ contentType: 'image/svg+xml', body: portrait }));
   await application.evaluate(({ net }) => {
     globalThis.__anidbTestRequests = [];
     net.fetch = async (url, options) => {
       if (!url.startsWith('http://api.anidb.net:9001/httpapi?')) throw new Error('Unexpected fixture destination');
       globalThis.__anidbTestRequests.push(url);
-      return new Response('<anime id="123"><titles><title type="main">AniDB fixture</title></titles><characters><character id="1" type="main character in"><name>Test character</name><seiyuu id="2">Test actor</seiyuu></character></characters><episodes><episode id="1001"><epno>1</epno><title>Test episode</title></episode></episodes></anime>', { headers: { 'content-type': 'text/xml' } });
+      return new Response('<anime id="123"><titles><title type="main">AniDB fixture</title></titles><characters><character id="1" type="main character in"><name>Test character</name><picture>native-character.jpg</picture><seiyuu id="2">Test actor</seiyuu></character></characters><episodes><episode id="1001"><epno>1</epno><title>Test episode</title></episode></episodes></anime>', { headers: { 'content-type': 'text/xml' } });
     };
   });
   await page.locator('.anidb-config > summary').click(); await page.locator('#anidb-client').fill('yorutestfixture'); await page.locator('#anidb-client').blur();
   await page.locator('#anidb-fetch').click(); await page.getByRole('heading', { name: 'Test character', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.character-photo')?.naturalWidth > 0);
+  await page.getByRole('button', { name: 'Выбрать фото: Test character', exact: true }).click();
+  await page.locator('#character-photo-url').fill('https://photos.example.invalid/character.jpg');
+  await page.getByRole('button', { name: 'Сохранить фото', exact: true }).click();
+  assert.equal(await page.locator('.character-photo').getAttribute('src'), 'https://photos.example.invalid/character.jpg');
   await page.locator('#anidb-fetch').click();
   await page.waitForFunction(() => !document.querySelector('#anidb-fetch').disabled);
+  assert.equal(await page.locator('.character-photo').getAttribute('src'), 'https://photos.example.invalid/character.jpg', 'Portrait choice survives API refresh');
   const apiRequests = await application.evaluate(() => globalThis.__anidbTestRequests);
   assert.equal(apiRequests.length, 1, 'AniDB cache must avoid a duplicate request');
   const apiURL = new URL(apiRequests[0]); assert.equal(apiURL.searchParams.get('aid'), '123'); assert.equal(apiURL.searchParams.get('client'), 'yorutestfixture');

@@ -1,0 +1,55 @@
+{
+  "metadataSource": "https://github.com/ailev/anird/blob/master/aniDB/data/128.xml",
+  "releaseId": 128,
+  "releaseTitle": "Arcade Gamer Fubuki",
+  "images": [
+    {
+      "name": "Sakuragasaki Fubuki",
+      "url": "https://cdn.anidb.net/images/main/148922.jpg",
+      "file": "character-63316.jpg",
+      "sha256": "2bc457a04aaf51d016e7471a4fa4306c8584265c90fc0f451cba3d375785dc22"
+    },
+    {
+      "name": "Nogawa Sakura",
+      "url": "https://cdn.anidb.net/images/main/17150.jpg",
+      "file": "actor-313.jpg",
+      "sha256": "6b012179abe5e770c9df0d8131c8010b6cd96cd9927f228cedfe1c4d25464979"
+    },
+    {
+      "name": "Melody Honey",
+      "url": "https://cdn.anidb.net/images/main/74386.jpg",
+      "file": "character-33992.jpg",
+      "sha256": "9f10dc454284d9d9d323d29668c587596ea58d0a08fc8aefc40121c180adee4f"
+    },
+    {
+      "name": "Toyoguchi Megumi",
+      "url": "https://cdn.anidb.net/images/main/17197.jpg",
+      "file": "actor-356.jpg",
+      "sha256": "dab1553e6ac1f3f6420ca85c2ca51870a1f8a687c6a35a278e3b330edeb40931"
+    },
+    {
+      "name": "Juumonji Chizuru",
+      "url": "https://cdn.anidb.net/images/main/148923.jpg",
+      "file": "character-63315.jpg",
+      "sha256": "f71b924f0dd99940e7a7f319b6309a86d133ac431a130ebbc191b6b085d6fa2e"
+    },
+    {
+      "name": "Asakawa Yuu",
+      "url": "https://cdn.anidb.net/images/main/34824.jpg",
+      "file": "actor-82.jpg",
+      "sha256": "a5b2490cd22322a073705476f66133718f824bc5c555db47fdad4b266fefd803"
+    },
+    {
+      "name": "Kokubunji Hanako",
+      "url": "https://cdn.anidb.net/images/main/148921.jpg",
+      "file": "character-63317.jpg",
+      "sha256": "6a094444567c33772eff5a42c8a280aa61eceb85767363c63640393ea25ac02e"
+    },
+    {
+      "name": "Shimizu Kaori",
+      "url": "https://cdn.anidb.net/images/main/16651.jpg",
+      "file": "actor-56.jpg",
+      "sha256": "8d0a55a15fb7944f58401faad34f7d97d1176654421740dbed9ae75ca9ff76d2"
+    }
+  ]
+}

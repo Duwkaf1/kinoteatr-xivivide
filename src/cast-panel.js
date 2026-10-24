@@ -1,7 +1,16 @@
 import { parseAniDB, readCastCache, saveCastCache, castForEpisode, anidbPage } from './anidb.js';
 import { animeId } from './media-schema.js';
+import { mergeCastPhotos, validateCharacterPhoto } from './character-photos.js';
+import { characterPhotoPicker } from './character-photo-picker.js';
+import { icon } from './icons.js';
 export function castPanel({ $, node, active, persist, toast }) {
   let cache = readCastCache(); let serial = 0;
+  const photos = characterPhotoPicker({ $, node, save: (releaseId, characterId, photo) => {
+    const data = cache[releaseId]; const character = data?.characters.find(item => item.id === characterId);
+    if (!character) throw new Error('Данные персонажа изменились. Открой выбор фотографии заново.');
+    if (photo) character.photo = validateCharacterPhoto(photo); else delete character.photo;
+    save(data); render(); toast('Фотография персонажа сохранена.');
+  } });
   const season = () => Number($('#cast-season').value) || 1;
   const mapping = () => active()?.title.seasons?.find(item => item.number === season());
   const id = () => mapping()?.anidbId || (season() === 1 ? active()?.title.anidbId : null);
@@ -19,7 +28,25 @@ export function castPanel({ $, node, active, persist, toast }) {
     $('#cast-status').textContent = perEpisode ? characters === null ? 'В AniDB XML нет состава по сериям. Для этой серии данные ещё не отмечены; общий состав сезона не подставляется.' : `Серия ${value.episode.number} · отмечено вручную: ${characters.length}` : `${data.title || 'AniDB'} · состав сезона: ${characters.length} · обновлено ${new Date(data.updatedAt).toLocaleDateString('ru')}`;
     for (const character of characters || []) {
       const card = node('article', undefined, 'cast-card'); const role = { 'main character in': 'Главный персонаж', 'secondary cast in': 'Второстепенный персонаж', 'appears in': 'Эпизодическая роль' }[character.role] || character.role;
-      card.append(node('h3', character.name), node('p', role || 'Персонаж', 'muted'), node('p', character.actors.map(actor => actor.name).join(' · ') || 'Сэйю не указан'));
+      const portrait = node('div', undefined, 'character-portrait'); const fallback = node('span', undefined, 'character-photo-fallback'); fallback.append(icon('portrait'), node('span', 'Фотографии пока нет')); portrait.append(fallback);
+      const source = character.photo?.url || character.imageUrl;
+      if (source) {
+        const image = node('img', undefined, 'character-photo'); image.alt = character.name; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
+        image.onload = () => { fallback.hidden = true; }; image.onerror = () => { image.remove(); fallback.lastElementChild.textContent = 'Фото недоступно'; };
+        image.src = source; portrait.append(image);
+      }
+      const edit = node('button', undefined, 'character-photo-edit icon-button'); edit.type = 'button'; edit.append(icon('image')); edit.setAttribute('aria-label', `Выбрать фото: ${character.name}`); edit.title = 'Выбрать фотографию'; edit.onclick = () => photos.open(character, data.id); portrait.append(edit);
+      const body = node('div', undefined, 'character-body'); body.append(node('h3', character.name), node('p', role || 'Персонаж', 'character-role'));
+      const actors = node('div', undefined, 'character-actors');
+      for (const actor of character.actors) {
+        const row = node('div', undefined, 'character-actor');
+        if (actor.imageUrl) { const image = node('img'); image.alt = ''; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.onerror = () => image.remove(); image.src = actor.imageUrl; row.append(image); }
+        row.append(node('span', actor.name)); actors.append(row);
+      }
+      if (!character.actors.length) actors.append(node('span', 'Актёр озвучивания не указан', 'muted'));
+      body.append(actors);
+      if (source) body.append(node('small', `Фото · ${character.photo?.source || 'AniDB'}`, 'character-photo-source'));
+      card.append(portrait, body);
       $('#cast-list').append(card);
     }
     const marked = data.manualEpisodes?.[String(value.episode.number)] || [];
@@ -61,7 +88,7 @@ export function castPanel({ $, node, active, persist, toast }) {
       if (!file || file.size > 2 * 1024 * 1024) throw new Error('Нужен XML-файл до 2 МиБ.');
       const data = parseAniDB(await file.text(), target);
       if (token !== serial) return;
-      data.manualEpisodes = cache[target]?.manualEpisodes || {}; save(data); render();
+      save(mergeCastPhotos(data, cache[target])); render();
     } catch (error) { if (token === serial) $('#cast-status').textContent = error.message; }
     event.target.value = '';
   };
@@ -74,7 +101,7 @@ export function castPanel({ $, node, active, persist, toast }) {
       if (!client) throw new Error('Для API нужно зарегистрированное имя клиента AniDB. Укажи его ниже или импортируй XML.');
       const xml = await window.kadr.fetchAniDB({ id: target, client, version });
       if (token !== serial) return;
-      const data = parseAniDB(xml, target); data.manualEpisodes = cache[target]?.manualEpisodes || {}; save(data); render();
+      const data = parseAniDB(xml, target); save(mergeCastPhotos(data, cache[target])); render();
     } catch (error) { if (token === serial) $('#cast-status').textContent = `Не удалось обновить: ${error.message}`; }
     finally { button.disabled = false; }
   };

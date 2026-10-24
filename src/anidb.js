@@ -1,4 +1,5 @@
 import { animeId } from './media-schema.js';
+import { anidbImage, validateCharacterPhoto } from './character-photos.js';
 export function anidbPage(id, episodeId) {
   return episodeId ? `https://anidb.net/episode/${animeId(episodeId)}` : `https://anidb.net/anime/${animeId(id)}#characterlist`;
 }
@@ -13,7 +14,8 @@ export function parseAniDB(xml, expectedId, Parser = DOMParser) {
   const text = (element, selector) => element.querySelector(selector)?.textContent?.trim().slice(0, 200) || '';
   const characters = [...root.querySelectorAll(':scope > characters > character')].slice(0, 1000).map(character => ({
     id: animeId(Number(character.getAttribute('id'))), name: text(character, ':scope > name'), role: (character.getAttribute('type') || '').slice(0, 100),
-    actors: [...character.querySelectorAll(':scope > seiyuu')].slice(0, 20).map(actor => ({ name: actor.textContent.trim().slice(0, 160), id: Number(actor.getAttribute('id')) || null })),
+    ...(anidbImage(text(character, ':scope > picture')) ? { imageUrl: anidbImage(text(character, ':scope > picture')) } : {}),
+    actors: [...character.querySelectorAll(':scope > seiyuu')].slice(0, 20).map(actor => ({ name: actor.textContent.trim().slice(0, 160), id: Number(actor.getAttribute('id')) || null, ...(anidbImage(actor.getAttribute('picture')) ? { imageUrl: anidbImage(actor.getAttribute('picture')) } : {}) })),
   })).filter(character => character.name);
   const episodes = [...root.querySelectorAll(':scope > episodes > episode')].slice(0, 1000).map(episode => ({ id: Number(episode.getAttribute('id')) || null, number: text(episode, ':scope > epno'), title: text(episode, ':scope > title') }));
   return { id, title: text(root, ':scope > titles > title[type="main"]') || text(root, ':scope > titles > title'), characters, episodes, updatedAt: Date.now() };
@@ -29,7 +31,12 @@ export function readCastCache(storage = localStorage) {
       if (data.episodes.some(e => !e || typeof e.number !== 'string')) continue;
       const manualEpisodes = {};
       for (const [number, ids] of Object.entries(data.manualEpisodes || {})) if (/^\d{1,5}$/.test(number) && Array.isArray(ids)) manualEpisodes[number] = ids.filter(id => Number.isSafeInteger(id)).slice(0, 1000);
-      result[data.id] = { ...data, manualEpisodes };
+      const characters = data.characters.map(character => {
+        const { photo, imageUrl, ...rest } = character;
+        const safePhoto = validateCharacterPhoto(photo); const safeImage = anidbImage(imageUrl);
+        return { ...rest, ...(safePhoto ? { photo: safePhoto } : {}), ...(safeImage ? { imageUrl: safeImage } : {}), actors: character.actors.map(actor => { const { imageUrl, ...rest } = actor; const image = anidbImage(imageUrl); return { ...rest, ...(image ? { imageUrl: image } : {}) }; }) };
+      });
+      result[data.id] = { ...data, characters, manualEpisodes };
     }
     return result;
   } catch { return {}; }
