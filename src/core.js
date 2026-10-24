@@ -25,7 +25,16 @@ export function validateLibrary(data) {
     if (typeof title.title !== 'string' || !title.title.trim() || title.title.length > 160) throw new Error('Укажи название аниме, не более 160 символов.');
     if (!Array.isArray(title.episodes) || !title.episodes.length || title.episodes.length > 500) throw new Error('Нужны серии: от 1 до 500.');
     const episodeIds = new Set();
-    return { id: title.id, title: title.title.trim(), episodes: title.episodes.map(ep => {
+    const poster = {};
+    if (title.posterUrl !== undefined && title.posterUrl !== '') {
+      if (typeof title.posterUrl !== 'string' || title.posterUrl.length > 2048) throw new Error('Ссылка на постер должна быть не длиннее 2048 символов.');
+      poster.posterUrl = httpsURL(title.posterUrl);
+    }
+    if (title.anilibriaId !== undefined) {
+      if (!Number.isSafeInteger(title.anilibriaId) || title.anilibriaId < 1 || !poster.posterUrl) throw new Error('Для постера AniLibria нужны ссылка и положительный числовой anilibriaId.');
+      poster.anilibriaId = title.anilibriaId;
+    }
+    return { id: title.id, title: title.title.trim(), ...poster, episodes: title.episodes.map(ep => {
       if (!ep || typeof ep.id !== 'string' || !ep.id || episodeIds.has(ep.id)) throw new Error('У серий должны быть уникальные id внутри аниме.');
       episodeIds.add(ep.id);
       if (!Number.isInteger(ep.number) || ep.number < 1) throw new Error('Номер серии должен быть положительным целым числом.');

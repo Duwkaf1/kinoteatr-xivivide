@@ -6,6 +6,10 @@ import path from 'node:path';
 
 let fixture; let directory;
 let hlsManifest;
+const posterCatalog = JSON.parse(readFileSync(new URL('../test/fixtures/posters/catalog.json', import.meta.url)));
+async function servePosters(page) {
+  for (const item of posterCatalog) await page.route(item.posterUrl, route => route.fulfill({ contentType: 'image/webp', body: readFileSync(new URL(`../test/fixtures/posters/${item.file}`, import.meta.url)) }));
+}
 test.beforeAll(() => {
   directory = mkdtempSync(path.join(tmpdir(), 'kadr-media-'));
   const output = path.join(directory, 'test.webm');
@@ -35,6 +39,65 @@ function fulfillVideo(route) {
   return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: fixture.subarray(start, end + 1) });
 }
 async function open(page) { await page.goto('http://127.0.0.1:5173'); }
+
+test('choose a real catalog poster explicitly, persist it, edit and remove it', async ({ page }) => {
+  const item = posterCatalog[0]; let searches = 0;
+  await servePosters(page);
+  await page.route('https://anilibria.top/api/**', route => {
+    searches++;
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get('f[search]')).toBe('Фрирен');
+    return route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: posterCatalog.filter(p => p.english.startsWith('Sousou no Frieren')).map(p => ({ id: p.id, name: { main: p.title, english: p.english }, year: p.year, poster: { preview: new URL(p.posterUrl).pathname } })) }) });
+  });
+  await open(page); await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Моя Фрирен');
+  await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.test/first.webm');
+  await page.locator('#choose-add-poster').click(); await page.locator('#poster-search').fill('Фрирен');
+  expect(searches).toBe(0);
+  await page.locator('#poster-search-button').click();
+  await expect(page.locator('.poster-result')).toHaveCount(2);
+  await expect(page.locator('#poster-url')).toHaveValue('');
+  await page.getByRole('button', { name: `Выбрать постер: ${item.title} (${item.year})`, exact: true }).click();
+  await expect.poll(() => page.locator('#poster-preview img').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.screenshot({ path: 'test-results/poster-picker.png' });
+  await page.getByRole('button', { name: 'Сохранить обложку' }).click();
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await expect(page.locator('.artwork')).toHaveClass(/has-poster/);
+  await expect(page.locator('.artwork img')).toHaveAttribute('loading', 'lazy');
+  await expect(page.locator('.artwork img')).toHaveAttribute('referrerpolicy', 'no-referrer');
+  await page.reload();
+  await expect(page.locator('.artwork img')).toHaveAttribute('src', item.posterUrl);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].anilibriaId)).toBe(item.id);
+  await page.getByRole('button', { name: 'Изменить постер: Моя Фрирен' }).click();
+  await page.locator('#poster-url').fill('https://example.test/changed.jpg'); await page.locator('#cancel-poster').click();
+  await expect(page.locator('.artwork img')).toHaveAttribute('src', item.posterUrl);
+  await page.getByRole('button', { name: 'Изменить постер: Моя Фрирен' }).click();
+  await page.locator('#poster-url').fill(''); await page.getByRole('button', { name: 'Сохранить обложку' }).click();
+  await expect(page.locator('.poster-fallback')).toHaveText('Постер не выбран');
+  await expect(page.locator('.artwork img')).toHaveCount(0);
+  await page.reload(); await expect(page.locator('.artwork img')).toHaveCount(0);
+  expect(searches).toBe(1);
+});
+
+test('broken poster and unavailable catalog do not stop video or overwrite an existing cover', async ({ page }) => {
+  await open(page); await serveVideo(page);
+  await page.route('https://example.test/broken.jpg', route => route.fulfill({ status: 404 }));
+  await page.route('https://anilibria.top/api/**', route => route.fulfill({ status: 429, headers: { 'access-control-allow-origin': '*' } }));
+  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Фрирен');
+  await page.locator('#add-poster-url').fill('https://example.test/broken.jpg');
+  await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.test/first.webm');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await expect(page.locator('.poster-fallback')).toContainText('Постер недоступен');
+  await page.getByRole('button', { name: 'Изменить постер: Фрирен' }).click();
+  await page.locator('#poster-search-button').click();
+  await expect(page.locator('#poster-status')).toContainText('подождать');
+  await expect(page.locator('#poster-url')).toHaveValue('https://example.test/broken.jpg');
+  await page.locator('#cancel-poster').click();
+  await page.getByRole('button', { name: 'Смотреть: Фрирен', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await expect.poll(() => page.locator('video').evaluate(v => v.currentTime)).toBeGreaterThan(0);
+});
 
 test('empty library, site cards and manual import errors are explicit', async ({ page }) => {
   await open(page);
@@ -190,11 +253,13 @@ test('system reduced motion and persisted animation preference disable motion', 
 });
 
 test('design preview at normal and minimum desktop widths has no horizontal overflow', async ({ page }) => {
-  const names = ['Тихий город', 'Письма к звёздам', 'Поезд к морю', 'Сад после дождя', 'Летние воспоминания', 'За краем облаков', 'Голос ветра', 'Последний фонарь'];
-  const titles = names.map((title, i) => ({ ...anime([source('first')]), id: `preview-${i}`, title }));
-  await seed(page, titles); await open(page);
+  const titles = posterCatalog.slice(0, 8).map(item => ({ ...anime([source('first')]), id: `preview-${item.id}`, title: item.title, posterUrl: item.posterUrl, anilibriaId: item.id })).reverse();
+  await servePosters(page); await seed(page, titles); await open(page);
   await expect(page.locator('.anime-card')).toHaveCount(8);
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('.anime-card').last().scrollIntoViewIfNeeded();
+  await expect(page.locator('.artwork.has-poster')).toHaveCount(8);
+  await page.evaluate(() => scrollTo(0, 0));
   await page.screenshot({ path: 'test-results/design-library.png', fullPage: true });
   await page.setViewportSize({ width: 960, height: 680 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

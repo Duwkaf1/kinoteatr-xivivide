@@ -29,6 +29,10 @@ try {
     return { sandbox: preferences.sandbox, nodeIntegration: preferences.nodeIntegration, contextIsolation: preferences.contextIsolation, webSecurity: preferences.webSecurity };
   });
   assert.deepEqual(security, { sandbox: true, nodeIntegration: false, contextIsolation: true, webSecurity: true });
+  const catalog = JSON.parse(await readFile(path.join(root, 'test/fixtures/posters/catalog.json'), 'utf8'));
+  const poster = catalog[0];
+  await page.route(poster.posterUrl, async route => route.fulfill({ contentType: 'image/webp', body: await readFile(path.join(root, 'test/fixtures/posters', poster.file)) }));
+  await page.route('https://anilibria.top/api/**', route => route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: [{ id: poster.id, name: { main: poster.title, english: poster.english }, year: poster.year, poster: { preview: new URL(poster.posterUrl).pathname } }] }) }));
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('input[name="theme"][value="cream"]').check();
   await page.locator('input[name="profile"][value="balanced"]').check();
@@ -60,10 +64,16 @@ try {
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проверка desktop');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.invalid/desktop.webm');
+  await page.locator('#choose-add-poster').click(); await page.locator('#poster-search').fill('Фрирен'); await page.locator('#poster-search-button').click();
+  await page.locator('.poster-result').click();
+  await page.waitForFunction(() => document.querySelector('#poster-preview img')?.naturalWidth > 0);
+  await page.getByRole('button', { name: 'Сохранить обложку' }).click();
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await page.getByRole('heading', { name: 'Проверка desktop', exact: true }).waitFor();
   await page.reload();
   await page.getByRole('heading', { name: 'Проверка desktop', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.artwork img')?.naturalWidth > 0);
+  assert.equal(await page.locator('.artwork img').getAttribute('src'), poster.posterUrl);
   const media = await readFile(path.join(root, 'test/fixtures/tone.webm'));
   await page.route('https://media.example.invalid/desktop.webm', route => route.fulfill({ contentType: 'video/webm', headers: { 'access-control-allow-origin': '*' }, body: media }));
   await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
@@ -82,7 +92,7 @@ try {
   assert.equal(await sourcePage.evaluate(() => typeof window.require), 'undefined');
   assert.deepEqual(errors, []);
   const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-  console.log(`PASS: Electron ${version}; file renderer, themes/settings persistence, preload, isolation, IPC, add/reload persistence, real WebM playback, isolated source window`);
+  console.log(`PASS: Electron ${version}; file renderer, catalog poster selection/persistence/CSP, themes/settings persistence, preload, isolation, IPC, add/reload persistence, real WebM playback, isolated source window`);
   // Closing the main window must also close sources and exit cleanly.
   const exited = application.waitForEvent('close');
   await page.close();

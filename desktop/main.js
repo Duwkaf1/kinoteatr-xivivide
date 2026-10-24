@@ -11,7 +11,6 @@ const profile = app.commandLine.getSwitchValue('user-data-dir');
 const userData = profile ? path.resolve(profile) : path.join(app.getPath('appData'), 'kadr-anime');
 mkdirSync(userData, { recursive: true });
 app.setPath('userData', userData);
-app.commandLine.appendSwitch('disable-http-cache');
 let mainWindow;
 const sourceWindows = new Map();
 const guardedSessions = new WeakSet();

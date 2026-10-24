@@ -3,6 +3,7 @@ import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
 import { DEFAULT_CUSTOM, isHexColor, contrast, applyCustom } from './custom-theme.js';
+import { createPosterSearch } from './catalog.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -192,12 +193,21 @@ function renderLibrary() {
     if (view === 'library' && !query) { const button = node('button', '＋ Добавить первое аниме', 'primary'); button.onclick = openAdd; empty.append(button); }
     fragment.append(empty);
   }
-  for (const [index, title] of titles.slice(0, visibleCount).entries()) {
+  for (const title of titles.slice(0, visibleCount)) {
     const card = node('article', undefined, 'anime-card');
-    const artwork = node('button', undefined, `artwork tone-${index % 4}`);
+    const artwork = node('button', undefined, 'artwork');
     artwork.setAttribute('aria-label', `Смотреть: ${title.title}`);
     const play = node('span', undefined, 'artwork-play'); play.append(icon('play'), node('span', 'Смотреть'));
-    artwork.append(node('span', `${String(index + 1).padStart(2, '0')} / КОЛЛЕКЦИЯ`, 'artwork-label'), node('span', title.title.slice(0, 1).toUpperCase(), 'artwork-letter'), node('span', title.title, 'artwork-title'), play);
+    const fallback = node('span', undefined, 'poster-fallback');
+    fallback.append(icon('cinema'), node('span', title.posterUrl ? 'Загружаем постер' : 'Постер не выбран'));
+    artwork.append(fallback);
+    if (title.posterUrl) {
+      const image = posterImage(title.posterUrl);
+      image.onload = () => { fallback.hidden = true; artwork.classList.add('has-poster'); };
+      image.onerror = () => { image.remove(); fallback.lastElementChild.textContent = 'Постер недоступен'; };
+      artwork.append(image);
+    }
+    artwork.append(play);
     artwork.onclick = () => openTitle(title);
     const info = node('div', undefined, 'card-info');
     const favorite = node('button', undefined, 'favorite icon-button');
@@ -216,6 +226,10 @@ function renderLibrary() {
     const progress = Object.hasOwn(state.progress, title.id) ? state.progress[title.id] : null;
     const ep = title.episodes.find(e => e.id === progress?.episodeId);
     info.append(node('p', ep ? `Серия ${ep.number} · ${Math.floor(progress.time / 60)} мин` : `${title.episodes.length} серий · ещё не смотрел`, 'muted'));
+    const edit = node('button', 'Обложка', 'poster-edit');
+    edit.setAttribute('aria-label', `Изменить постер: ${title.title}`);
+    edit.onclick = () => openPoster(title);
+    info.append(edit);
     card.append(artwork, info); fragment.append(card);
   }
   grid.replaceChildren(fragment);
@@ -257,6 +271,91 @@ for (const source of EXAMPLE_SITES) {
   card.append(open); $('#source-cards').append(card);
 }
 
+function posterImage(url) {
+  const image = node('img', undefined, 'poster-image');
+  image.alt = ''; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.src = url;
+  return image;
+}
+
+let addPosterId = null;
+let posterTarget = null;
+let selectedRelease = null;
+let posterRequest;
+let posterGeneration = 0;
+const searchPosters = createPosterSearch();
+const addPosterInput = $('#add-poster-url');
+function stopPosterSearch() { posterGeneration++; posterRequest?.abort(); posterRequest = null; $('#poster-search-button').disabled = false; }
+function showPosterPreview() {
+  const preview = $('#poster-preview'); preview.replaceChildren();
+  const value = $('#poster-url').value.trim();
+  if (!value) { preview.append(node('p', 'Пока без обложки. Можно выбрать её позже.', 'muted')); return; }
+  try {
+    const image = posterImage(httpsURL(value));
+    image.onerror = () => { if (preview.contains(image)) preview.replaceChildren(node('p', 'Картинка не загрузилась. Проверь ссылку или выбери другой постер.', 'muted')); };
+    const caption = node('div');
+    caption.append(node('strong', selectedRelease ? selectedRelease.title : 'Своя обложка'), node('p', selectedRelease ? `AniLibria · ${selectedRelease.year || 'год не указан'} · ID ${selectedRelease.id}` : 'Предпросмотр по твоей HTTPS-ссылке', 'muted'));
+    preview.append(image, caption);
+  } catch { preview.append(node('p', 'Для предпросмотра нужна HTTPS-ссылка.', 'muted')); }
+}
+function openPoster(title = null) {
+  stopPosterSearch(); posterTarget = title; selectedRelease = null;
+  $('#poster-search').value = (title?.title || $('#add-form [name="title"]').value).slice(0, 100);
+  $('#poster-url').value = title?.posterUrl || (title ? '' : addPosterInput.value);
+  const id = title?.anilibriaId || (title ? null : addPosterId);
+  if (id) selectedRelease = { id, title: title?.title || $('#add-form [name="title"]').value, posterUrl: $('#poster-url').value };
+  $('#poster-results').replaceChildren(); $('#poster-error').textContent = ''; $('#poster-status').textContent = 'Найди название и выбери нужный сезон. Поиск использует каталог AniLibria.';
+  showPosterPreview(); $('#poster-dialog').showModal();
+}
+$('#choose-add-poster').onclick = () => openPoster();
+addPosterInput.oninput = () => { addPosterId = null; };
+$('#poster-search').oninput = () => { stopPosterSearch(); $('#poster-results').replaceChildren(); $('#poster-status').textContent = 'Нажми «Найти», чтобы посмотреть обложки.'; };
+$('#poster-search').onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); $('#poster-search-button').click(); } };
+$('#poster-search-button').onclick = async () => {
+  stopPosterSearch(); const token = posterGeneration; posterRequest = new AbortController();
+  $('#poster-search-button').disabled = true; $('#poster-results').replaceChildren(); $('#poster-status').textContent = 'Ищем обложки…';
+  try {
+    const releases = await searchPosters($('#poster-search').value, { signal: posterRequest.signal });
+    if (token !== posterGeneration || !$('#poster-dialog').open) return;
+    $('#poster-status').textContent = releases.length ? 'Выбери аниме и сезон, затем сохрани обложку.' : 'Не нашли. Попробуй английское название или вставь свою ссылку.';
+    for (const release of releases) {
+      const button = node('button', undefined, 'poster-result'); button.type = 'button';
+      button.setAttribute('aria-label', `Выбрать постер: ${release.title} (${release.year || 'год неизвестен'})`);
+      const image = posterImage(release.posterUrl); image.onerror = () => { image.remove(); };
+      const caption = node('span'); caption.append(node('strong', release.title), node('small', `${release.year || '—'} · ${release.english || 'AniLibria'} · ID ${release.id}`));
+      button.append(image, caption);
+      button.onclick = () => {
+        selectedRelease = release; $('#poster-url').value = release.posterUrl; $('#poster-error').textContent = ''; showPosterPreview();
+        for (const result of $('#poster-results').children) result.setAttribute('aria-pressed', String(result === button));
+      };
+      button.setAttribute('aria-pressed', 'false'); $('#poster-results').append(button);
+    }
+  } catch (error) {
+    if (token === posterGeneration) $('#poster-status').textContent = error.name === 'TimeoutError' ? 'Каталог не ответил за 10 секунд. Повтори поиск или вставь свою ссылку.' : error.message === 'Failed to fetch' ? 'Не удалось связаться с каталогом. Проверь сеть или вставь свою ссылку.' : error.message;
+  } finally { if (token === posterGeneration) $('#poster-search-button').disabled = false; }
+};
+$('#poster-url').oninput = () => { selectedRelease = null; $('#poster-error').textContent = ''; };
+$('#poster-url').onchange = showPosterPreview;
+$('#cancel-poster').onclick = () => $('#poster-dialog').close();
+$('#poster-dialog').addEventListener('close', () => { stopPosterSearch(); $('#poster-preview').replaceChildren(); });
+$('#poster-form').onsubmit = event => {
+  event.preventDefault();
+  try {
+    const value = $('#poster-url').value.trim();
+    if (value.length > 2048) throw new Error('Ссылка на постер должна быть не длиннее 2048 символов.');
+    const url = value ? httpsURL(value) : '';
+    if (posterTarget) {
+      delete posterTarget.posterUrl; delete posterTarget.anilibriaId;
+      if (url) posterTarget.posterUrl = url;
+      if (url && selectedRelease) posterTarget.anilibriaId = selectedRelease.id;
+      persist(); renderLibrary(); toast('Обложка сохранена.');
+    } else {
+      addPosterInput.value = url; addPosterId = url && selectedRelease ? selectedRelease.id : null;
+      if (!$('#add-form [name="title"]').value && selectedRelease) $('#add-form [name="title"]').value = selectedRelease.title;
+    }
+    $('#poster-dialog').close();
+  } catch (error) { $('#poster-error').textContent = error.message; }
+};
+
 function openAdd() { $('#form-error').textContent = ''; $('#add-dialog').showModal(); }
 $('#add-button').onclick = openAdd;
 $('#cancel-add').onclick = () => $('#add-dialog').close();
@@ -266,8 +365,8 @@ $('#add-form').onsubmit = event => {
     const fields = new FormData(event.currentTarget);
     const url = httpsURL(fields.get('url'));
     if (!/\.(m3u8|mp4|webm)(?:$|\?)/i.test(url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8. Страницы сайтов пока не подключены.');
-    const title = { id: crypto.randomUUID(), title: fields.get('title'), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: fields.get('voice'), language: 'ru', quality: Number(fields.get('quality')) }] }] };
-    validateLibrary([title]); state.titles.push(title); persist(); $('#add-dialog').close(); event.currentTarget.reset(); renderLibrary(); toast('Добавлено в библиотеку.');
+    const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: fields.get('voice'), language: 'ru', quality: Number(fields.get('quality')) }] }] };
+    state.titles.push(validateLibrary([title])[0]); persist(); $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast('Добавлено в библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
 $('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = pageSize(); searchTimer = requestAnimationFrame(renderLibrary); };

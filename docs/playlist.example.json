@@ -1,24 +1,50 @@
 [
   {
     "id": "replace-with-title-id",
-    "title": "Пример структуры — замени ссылки своими",
+    "title": "Провожающая в последний путь Фрирен — пример структуры, замени видеоссылки",
     "episodes": [
       {
         "id": "season-1-episode-1",
         "number": 1,
         "sources": [
-          { "id": "anidub-main", "url": "https://media.example.invalid/episode1.mp4", "voice": "AniDUB", "language": "ru", "quality": 1080 },
-          { "id": "anidub-backup", "url": "https://backup.example.invalid/episode1.mp4", "voice": "AniDUB", "language": "ru", "quality": 1080 },
-          { "id": "anilibria", "url": "https://other.example.invalid/episode1.m3u8", "voice": "AniLibria", "language": "ru", "quality": 1080 }
+          {
+            "id": "anidub-main",
+            "url": "https://media.example.invalid/episode1.mp4",
+            "voice": "AniDUB",
+            "language": "ru",
+            "quality": 1080
+          },
+          {
+            "id": "anidub-backup",
+            "url": "https://backup.example.invalid/episode1.mp4",
+            "voice": "AniDUB",
+            "language": "ru",
+            "quality": 1080
+          },
+          {
+            "id": "anilibria",
+            "url": "https://other.example.invalid/episode1.m3u8",
+            "voice": "AniLibria",
+            "language": "ru",
+            "quality": 1080
+          }
         ]
       },
       {
         "id": "season-1-episode-2",
         "number": 2,
         "sources": [
-          { "id": "anidub-main", "url": "https://media.example.invalid/episode2.mp4", "voice": "AniDUB", "language": "ru", "quality": 1080 }
+          {
+            "id": "anidub-main",
+            "url": "https://media.example.invalid/episode2.mp4",
+            "voice": "AniDUB",
+            "language": "ru",
+            "quality": 1080
+          }
         ]
       }
-    ]
+    ],
+    "posterUrl": "https://anilibria.top/storage/releases/posters/9542/8UGD4dHHp1kdjquBph2CUSk9pLNsGtYw.webp",
+    "anilibriaId": 9542
   }
 ]

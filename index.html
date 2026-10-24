@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src https: blob:; connect-src 'self' https:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; media-src https: blob:; connect-src 'self' https:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Yoru — аниме</title>
     <script src="/theme-init.js"></script>
     <link rel="stylesheet" href="/src/style.css">
@@ -102,7 +102,20 @@
       </section>
       <footer><span>Твой прогресс сохраняется на этом устройстве</span><span id="footer-mode">Качество без автоматического снижения · Без скачивания серий</span></footer>
     </main>
-    <dialog id="add-dialog"><form id="add-form"><p class="eyebrow">НОВАЯ ИСТОРИЯ</p><h2>Добавить аниме</h2><p class="muted">Пока доступны прямые HTTPS-ссылки MP4, WebM и HLS. Подключение каталогов сайтов в работе.</p><label>Название<input name="title" required maxlength="160" placeholder="Название аниме"></label><label>Ссылка на видео<input name="url" type="url" required placeholder="https://…/episode.m3u8"></label><div class="form-row"><label>Озвучка<select name="voice"><option>AniDUB</option><option>AniLibria</option><option>Русская</option></select></label><label>Качество<select name="quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label></div><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-add" class="quiet">Отмена</button><button class="primary" type="submit">Добавить</button></div></form></dialog>
+    <dialog id="poster-dialog" aria-labelledby="poster-heading">
+      <form id="poster-form">
+        <p class="eyebrow">ОБЛОЖКА ИСТОРИИ</p><h2 id="poster-heading">Постер аниме</h2>
+        <p class="muted">Настоящие обложки из AniLibria или твоя картинка. Выбор постера не меняет видео и озвучку.</p>
+        <label for="poster-search">Название в каталоге</label>
+        <div class="poster-url-row"><input id="poster-search" maxlength="100" placeholder="Например, Фрирен" autocomplete="off"><button type="button" id="poster-search-button" class="quiet">Найти</button></div>
+        <p id="poster-status" role="status"></p><div id="poster-results"></div>
+        <label for="poster-url">HTTPS-ссылка на постер</label><input id="poster-url" type="url" maxlength="2048" placeholder="https://…/poster.jpg">
+        <p class="poster-hint muted">Оставь пустым, чтобы убрать обложку.</p><div id="poster-preview"></div>
+        <p id="poster-error" role="alert"></p>
+        <div class="dialog-actions"><button type="button" id="cancel-poster" class="quiet">Отмена</button><button type="submit" class="primary">Сохранить обложку</button></div>
+      </form>
+    </dialog>
+    <dialog id="add-dialog"><form id="add-form"><p class="eyebrow">НОВАЯ ИСТОРИЯ</p><h2>Добавить аниме</h2><p class="muted">Пока доступны прямые HTTPS-ссылки MP4, WebM и HLS. Подключение каталогов сайтов в работе.</p><label>Название<input name="title" required maxlength="160" placeholder="Название аниме"></label><div class="add-poster-field"><label for="add-poster-url">Постер <span class="muted">необязательно</span></label><div class="poster-url-row"><input id="add-poster-url" name="posterUrl" type="url" maxlength="2048" placeholder="https://…/poster.jpg"><button type="button" id="choose-add-poster" class="quiet">Выбрать</button></div></div><label>Ссылка на видео<input name="url" type="url" required placeholder="https://…/episode.m3u8"></label><div class="form-row"><label>Озвучка<select name="voice"><option>AniDUB</option><option>AniLibria</option><option>Русская</option></select></label><label>Качество<select name="quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label></div><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-add" class="quiet">Отмена</button><button class="primary" type="submit">Добавить</button></div></form></dialog>
     <input id="import-file" type="file" accept="application/json,.json" hidden>
     <div id="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/src/app.js"></script>
