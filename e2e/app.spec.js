@@ -278,3 +278,47 @@ test('automatic next episode can be disabled without disabling manual next', asy
   await page.locator('#next-button').click();
   await expect(page.locator('#playing-title')).toContainText('Серия 2');
 });
+
+test('custom colors and roundness apply live, persist and survive preset switching', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="theme"][value="custom"]').check();
+  const colors = { background: '#141b28', panel: '#222e42', text: '#f0f5ff', accent: '#8fc7e8' };
+  for (const [key, value] of Object.entries(colors)) {
+    await page.locator(`#hex-${key}`).fill(value);
+    await page.locator(`#hex-${key}`).blur();
+    await expect(page.locator(`#custom-${key}`)).toHaveValue(value);
+  }
+  await page.locator('#custom-radius').fill('34');
+  await expect(page.locator('#custom-radius-value')).toHaveText('34 px');
+  expect(await page.locator('body').evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(20, 27, 40)');
+  expect(await page.locator('.settings-card').first().evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(34, 46, 66)');
+  await expect(page.locator('#add-button')).toHaveCSS('background-color', 'rgb(143, 199, 232)');
+  await page.locator('input[name="theme"][value="cream"]').check();
+  await expect(page.locator('#custom-theme-editor')).toBeHidden();
+  await page.locator('input[name="theme"][value="custom"]').check();
+  await expect(page.locator('#hex-accent')).toHaveValue('#8fc7e8');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'custom');
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('#custom-radius')).toHaveValue('34');
+  await expect(page.locator('#hex-background')).toHaveValue('#141b28');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.screenshot({ path: 'test-results/settings-custom.png', fullPage: true });
+});
+
+test('custom editor rejects invalid HEX, warns about contrast and can reset', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="theme"][value="custom"]').check();
+  await page.locator('#hex-accent').fill('invalid'); await page.locator('#hex-accent').blur();
+  await expect(page.locator('#hex-accent')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#custom-color-error')).toContainText('#RRGGBB');
+  await expect(page.locator('#custom-accent')).toHaveValue('#f2c48f');
+  await page.locator('#hex-text').fill('#15171c'); await page.locator('#hex-text').blur();
+  await expect(page.locator('#custom-contrast')).toContainText('низкий контраст');
+  await page.locator('#reset-custom-theme').click();
+  await expect(page.locator('#hex-text')).toHaveValue('#eeeef2');
+  await expect(page.locator('#custom-color-error')).toBeEmpty();
+  await expect(page.locator('#custom-contrast')).toContainText('достаточный');
+});

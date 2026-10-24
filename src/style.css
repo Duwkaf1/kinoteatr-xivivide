@@ -309,3 +309,46 @@ form > label { color: var(--text); }
 @media (max-width: 1120px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .theme-preview { height: 90px; } .profile-choice { padding: 20px 17px; } .hero-copy { padding: 30px; } }
 @media (max-width: 800px) { .profile-grid { grid-template-columns: 1fr; } .settings-intro { padding: 23px; gap: 15px; } .settings-intro h2 { font-size: 22px; } .settings-orb { width: 49px; height: 49px; border-radius: 18px; } .settings-card { padding: 20px; } .settings-bottom { flex-direction: column; gap: 8px; } #settings-save-status { text-align: left; } .setting-row { gap: 14px; } }
 aside { overflow-y: auto; scrollbar-width: thin; }
+
+/* A custom palette uses only validated color values, never arbitrary CSS. */
+:root { --ui-radius: 28px; }
+:root[data-theme="custom"] {
+  --app-bg: var(--custom-background, #15171c); --surface: var(--custom-panel, #20232b); --text: var(--custom-text, #eeeef2);
+  --sidebar-bg: color-mix(in srgb, var(--app-bg) 75%, var(--surface)); --surface-soft: color-mix(in srgb, var(--app-bg) 45%, var(--surface));
+  --surface-raised: color-mix(in srgb, var(--surface) 88%, var(--text)); --muted: color-mix(in srgb, var(--text) 73%, var(--app-bg));
+  --subtle: color-mix(in srgb, var(--text) 65%, var(--app-bg)); --line: color-mix(in srgb, var(--text) 20%, var(--surface));
+  --accent: var(--custom-accent, #f2c48f); --accent-ink: var(--custom-accent-ink, #000000); --accent-soft: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  --mint: var(--accent); --hero-a: color-mix(in srgb, var(--accent) 12%, var(--surface)); --hero-b: var(--surface-soft);
+  --shadow: #00000020; --notice-bg: var(--accent-soft); --notice-text: var(--text); --ui-radius: var(--custom-radius, 28px); color-scheme: dark;
+}
+:root[data-theme="custom"][data-custom-scheme="light"] { color-scheme: light; }
+.hero, .settings-intro, .settings-card, dialog { border-radius: calc(var(--ui-radius) + 2px); }
+.artwork, #video-host, .source-card, .empty { border-radius: var(--ui-radius); }
+.theme-choice, .profile-choice, .info-box, .notice { border-radius: calc(var(--ui-radius) - 6px); }
+.primary, .quiet, .nav, .search, .icon-button:not(.favorite), form input { border-radius: calc(var(--ui-radius) * .6); }
+.theme-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.preview-custom { background: var(--custom-background); }
+.preview-custom > span { background: var(--custom-panel); }
+.preview-custom > span:nth-child(2) { background: var(--custom-accent); }
+.preview-custom > span:nth-child(3) { background: var(--custom-text); }
+.custom-theme-editor { margin-top: 25px; padding: 24px; border: 1px solid #465269; border-radius: 24px; background: #202733; color: #eef2fa; color-scheme: dark; }
+.custom-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.custom-editor-heading h3 { color: #eef2fa; font-size: 17px; margin: 0 0 8px; }
+.custom-editor-heading p, .custom-editor-note { color: #b5c1d3; font-size: 11px; line-height: 1.8; margin: 0; }
+.custom-theme-editor .quiet { background: #303c50; color: #eef2fa; border-color: #657893; flex-shrink: 0; }
+.custom-theme-editor .quiet:hover { background: #3b4962; border-color: #c1d2e8; }
+.custom-colors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 25px 0; }
+.custom-color-field > label { display: block; color: #d8e2f2; font-size: 12px; margin-bottom: 10px; }
+.custom-color-field > div { display: flex; align-items: center; gap: 8px; }
+.custom-color-field input[type="color"] { appearance: none; width: 38px; height: 38px; padding: 3px; background: #162030; border: 1px solid #687a92; border-radius: 12px; flex: 0 0 auto; cursor: pointer; }
+.custom-color-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.custom-color-field input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 7px; }
+.custom-color-field input[type="text"] { width: 100%; min-width: 0; padding: 11px 8px; background: #17202e; color: #eef2fa; border: 1px solid #52667e; border-radius: 10px; font: 11px ui-monospace, Consolas, monospace; }
+.custom-color-field input[aria-invalid="true"] { border-color: #ffb1a6; }
+.radius-control { display: flex; align-items: center; gap: 18px; font-size: 12px; color: #d8e2f2; margin: 10px 0 18px; }
+.radius-control input { accent-color: #aacbea; flex: 1; min-width: 90px; }
+.radius-control output { min-width: 42px; color: #c2d9ef; font-variant-numeric: tabular-nums; }
+#custom-color-error { color: #ffb1a6; font-size: 12px; margin: 10px 0; }
+#custom-contrast { color: #c4d5eb; font-size: 11px; line-height: 1.8; margin: 12px 0; }
+@media (max-width: 1120px) { .theme-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .custom-colors { grid-template-columns: repeat(2, minmax(0, 1fr)); } .custom-editor-heading { flex-direction: column; } }
+@media (max-width: 800px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .radius-control { flex-wrap: wrap; } .custom-theme-editor { padding: 19px; } }

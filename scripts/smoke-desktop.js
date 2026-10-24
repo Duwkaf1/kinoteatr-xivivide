@@ -37,6 +37,15 @@ try {
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   assert.equal(await page.locator('input[name="profile"][value="balanced"]').isChecked(), true);
   assert.equal(await page.locator('#default-quality').inputValue(), '1080');
+  await page.locator('input[name="theme"][value="custom"]').check();
+  await page.locator('#hex-background').fill('#182030');
+  await page.locator('#hex-background').blur();
+  await page.locator('#custom-radius').fill('32');
+  await page.reload();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'custom' && document.querySelector('#hero-button').onclick !== null);
+  assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--custom-background')), '#182030');
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  assert.equal(await page.locator('#custom-radius').inputValue(), '32');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проверка desktop');

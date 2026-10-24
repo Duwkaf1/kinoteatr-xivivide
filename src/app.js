@@ -2,6 +2,7 @@ import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL } from './core.j
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion } from './preferences.js';
+import { DEFAULT_CUSTOM, isHexColor, contrast, applyCustom } from './custom-theme.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -26,7 +27,17 @@ let hlsModule;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 decorateIcons();
 function applyPreferences() {
+  applyCustom(document.documentElement, preferences.custom);
   document.documentElement.dataset.theme = preferences.theme;
+  $('#custom-theme-editor').hidden = preferences.theme !== 'custom';
+  for (const key of ['background', 'panel', 'text', 'accent']) {
+    $(`#custom-${key}`).value = preferences.custom[key];
+    if (document.activeElement !== $(`#hex-${key}`)) { $(`#hex-${key}`).value = preferences.custom[key]; $(`#hex-${key}`).removeAttribute('aria-invalid'); }
+  }
+  $('#custom-radius').value = String(preferences.custom.radius);
+  $('#custom-radius-value').textContent = `${preferences.custom.radius} px`;
+  const ratio = Math.min(contrast(preferences.custom.text, preferences.custom.background), contrast(preferences.custom.text, preferences.custom.panel));
+  $('#custom-contrast').textContent = ratio < 4.5 ? 'У текста низкий контраст с фоном или панелями — его может быть сложно читать. Попробуй более светлый или тёмный цвет.' : 'Контраст основного текста с фоном и панелями достаточный.';
   document.body.dataset.profile = preferences.profile;
   const reduce = shouldReduceMotion(preferences, reducedMotion.matches);
   document.body.classList.toggle('less-motion', reduce);
@@ -59,6 +70,20 @@ function reveal(element) {
 reducedMotion.addEventListener('change', applyPreferences);
 $('#view-title').tabIndex = -1;
 for (const input of document.querySelectorAll('input[name="theme"]')) input.onchange = () => { preferences.theme = input.value; applyPreferences(); storePreferences(); };
+for (const key of ['background', 'panel', 'text', 'accent']) {
+  $(`#custom-${key}`).oninput = event => { preferences.custom[key] = event.target.value; $(`#hex-${key}`).removeAttribute('aria-invalid'); $('#custom-color-error').textContent = ''; applyPreferences(); storePreferences(); };
+  $(`#hex-${key}`).onchange = event => {
+    const value = event.target.value.trim();
+    if (!isHexColor(value)) { event.target.setAttribute('aria-invalid', 'true'); $('#custom-color-error').textContent = 'Укажи цвет в формате #RRGGBB, например #8fc7e8.'; return; }
+    preferences.custom[key] = value.toLowerCase(); event.target.removeAttribute('aria-invalid'); $('#custom-color-error').textContent = ''; applyPreferences(); storePreferences();
+  };
+}
+$('#custom-radius').oninput = event => { preferences.custom.radius = Number(event.target.value); applyPreferences(); storePreferences(); };
+$('#reset-custom-theme').onclick = () => {
+  preferences.custom = { ...DEFAULT_CUSTOM }; $('#custom-color-error').textContent = '';
+  for (const input of document.querySelectorAll('.custom-color-field input[type="text"]')) input.removeAttribute('aria-invalid');
+  applyPreferences(); storePreferences();
+};
 for (const input of document.querySelectorAll('input[name="profile"]')) input.onchange = () => {
   preferences.profile = input.value;
   state.quality = profileConfig(preferences.profile).quality;

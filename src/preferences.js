@@ -1,11 +1,12 @@
-export const THEMES = Object.freeze(['night', 'nord', 'sakura', 'cream']);
+import { DEFAULT_CUSTOM, validateCustom } from './custom-theme.js';
+export const THEMES = Object.freeze(['night', 'nord', 'sakura', 'cream', 'custom']);
 export const PROFILES = Object.freeze({
   quality: { quality: 1080, pageSize: 24, maxBufferLength: 30, maxMaxBufferLength: 45, backBufferLength: 8, maxBufferSize: 40 * 1024 * 1024 },
   balanced: { quality: 720, pageSize: 24, maxBufferLength: 20, maxMaxBufferLength: 30, backBufferLength: 5, maxBufferSize: 24 * 1024 * 1024 },
   economy: { quality: 480, pageSize: 12, maxBufferLength: 12, maxMaxBufferLength: 18, backBufferLength: 3, maxBufferSize: 12 * 1024 * 1024 },
 });
 const KEY = 'kadr.preferences.v1';
-export const defaultPreferences = () => ({ theme: 'night', profile: 'quality', animations: true, autoNext: true });
+export const defaultPreferences = () => ({ theme: 'night', profile: 'quality', animations: true, autoNext: true, custom: { ...DEFAULT_CUSTOM } });
 export function validatePreferences(input) {
   const value = input && typeof input === 'object' ? input : {};
   return {
@@ -13,6 +14,7 @@ export function validatePreferences(input) {
     profile: Object.hasOwn(PROFILES, value.profile ?? '') ? value.profile : 'quality',
     animations: typeof value.animations === 'boolean' ? value.animations : true,
     autoNext: typeof value.autoNext === 'boolean' ? value.autoNext : true,
+    custom: validateCustom(value.custom),
   };
 }
 export function loadPreferences(storage = localStorage) {

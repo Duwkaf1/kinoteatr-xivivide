@@ -6,7 +6,7 @@ import { loadState, savePlaybackState } from '../src/storage.js';
 test('themes and mode persist independently of the library', () => {
   const values = new Map([['kadr.library.v1', 'preserve-existing-library']]);
   const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
-  const preferences = { theme: 'cream', profile: 'economy', animations: false, autoNext: false };
+  const preferences = { ...defaultPreferences(), theme: 'cream', profile: 'economy', animations: false, autoNext: false };
   savePreferences(preferences, storage);
   assert.deepEqual(loadPreferences(storage), preferences);
   assert.equal(values.get('kadr.library.v1'), 'preserve-existing-library');

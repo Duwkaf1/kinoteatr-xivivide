@@ -21,7 +21,7 @@
       </nav>
       <div class="sidebar-note"><span class="dot"></span> Только русская озвучка<p>AniDUB → AniLibria → другая русская</p></div>
       <button id="motion-toggle" class="motion-toggle" aria-pressed="false"><span data-icon="spark"></span> Меньше анимаций</button>
-      <div class="version">КАДР / РАННЯЯ ВЕРСИЯ 0.3</div>
+      <div class="version">КАДР / РАННЯЯ ВЕРСИЯ 0.3.1</div>
     </aside>
     <main>
       <header><div class="breadcrumb"><span class="header-dot"></span> ЛИЧНЫЙ КИНОЗАЛ <span>/</span> АНИМЕ</div><div class="header-actions"><button id="import-button" class="quiet"><span data-icon="import"></span>Импорт списка</button><button id="add-button" class="primary"><span aria-hidden="true">＋</span> Добавить аниме</button></div></header>
@@ -38,11 +38,24 @@
       </section>
       <section id="settings-view" hidden aria-label="Настройки приложения">
         <div class="settings-intro"><span class="settings-orb" data-icon="settings"></span><div><p class="eyebrow">ПОДСТРОЙ ПОД СЕБЯ</p><h2>Твой комфорт — в деталях</h2><p class="muted">Оформление и режим просмотра сохраняются на этом устройстве.</p></div></div>
-        <fieldset class="settings-card"><legend>Оформление</legend><p class="settings-description">Четыре настроения для твоего вечера. Тема меняется сразу.</p><div class="theme-grid">
+        <fieldset class="settings-card"><legend>Оформление</legend><p class="settings-description">Выбери готовую тему или собери свою. Изменения видны сразу.</p><div class="theme-grid">
           <label class="theme-choice"><input type="radio" name="theme" value="night"><span class="theme-preview preview-night"><span></span><span></span><span></span></span><span class="choice-title">Тёплая ночь</span><span class="choice-description">Графит и мягкий янтарь</span></label>
           <label class="theme-choice"><input type="radio" name="theme" value="nord"><span class="theme-preview preview-nord"><span></span><span></span><span></span></span><span class="choice-title">Север</span><span class="choice-description">Сумерки и голубой лёд</span></label>
           <label class="theme-choice"><input type="radio" name="theme" value="sakura"><span class="theme-preview preview-sakura"><span></span><span></span><span></span></span><span class="choice-title">Сакура</span><span class="choice-description">Слива и пыльная роза</span></label>
           <label class="theme-choice"><input type="radio" name="theme" value="cream"><span class="theme-preview preview-cream"><span></span><span></span><span></span></span><span class="choice-title">Молочный</span><span class="choice-description">Светлая и спокойная</span></label>
+          <label class="theme-choice"><input type="radio" name="theme" value="custom"><span class="theme-preview preview-custom"><span></span><span></span><span></span></span><span class="choice-title">Своя</span><span class="choice-description">Твои цвета и скругления</span></label>
+        </div>
+        <div id="custom-theme-editor" class="custom-theme-editor" hidden>
+          <div class="custom-editor-heading"><div><h3>Собери своё настроение</h3><p>Выбери цвет в палитре или введи HEX-код. Панель редактора остаётся контрастной.</p></div><button id="reset-custom-theme" class="quiet" type="button">Вернуть исходные цвета</button></div>
+          <div class="custom-colors">
+            <div class="custom-color-field"><label for="custom-background">Фон</label><div><input id="custom-background" type="color" aria-label="Цвет фона"><input id="hex-background" type="text" maxlength="7" spellcheck="false" aria-label="HEX фона" placeholder="#15171c"></div></div>
+            <div class="custom-color-field"><label for="custom-panel">Панели</label><div><input id="custom-panel" type="color" aria-label="Цвет панелей"><input id="hex-panel" type="text" maxlength="7" spellcheck="false" aria-label="HEX панелей" placeholder="#20232b"></div></div>
+            <div class="custom-color-field"><label for="custom-text">Текст</label><div><input id="custom-text" type="color" aria-label="Цвет текста"><input id="hex-text" type="text" maxlength="7" spellcheck="false" aria-label="HEX текста" placeholder="#eeeef2"></div></div>
+            <div class="custom-color-field"><label for="custom-accent">Акцент</label><div><input id="custom-accent" type="color" aria-label="Цвет акцента"><input id="hex-accent" type="text" maxlength="7" spellcheck="false" aria-label="HEX акцента" placeholder="#f2c48f"></div></div>
+          </div>
+          <label class="radius-control" for="custom-radius"><span>Скругление элементов</span><input id="custom-radius" type="range" min="12" max="36" step="1"><output id="custom-radius-value" for="custom-radius">28 px</output></label>
+          <p id="custom-color-error" role="alert"></p><p id="custom-contrast" role="status" aria-live="polite"></p>
+          <p class="custom-editor-note">Текст на основных кнопках подбирается автоматически. Своя тема сохранится, даже если временно выбрать готовую.</p>
         </div></fieldset>
         <fieldset class="settings-card"><legend>Качество и производительность</legend><p class="settings-description">Выбери подходящий режим. Разрешение можно настроить отдельно ниже.</p><div class="profile-grid">
           <label class="profile-choice"><input type="radio" name="profile" value="quality"><span class="profile-icon" data-icon="spark"></span><span class="choice-title">Качество</span><span class="choice-description">1080p · буфер ≈ 30 секунд<br>Плавные эффекты и чёткая картинка</span></label>
