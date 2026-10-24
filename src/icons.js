@@ -1,0 +1,21 @@
+const paths = {
+  library: ['M4 4h6v7H4zM14 4h6v7h-6zM4 15h6v5H4zM14 15h6v5h-6z'],
+  heart: ['M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z'],
+  history: ['M3 11a9 9 0 1 1 2.6 7.4M3 4v7h7M12 7v5l3 2'],
+  sources: ['M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4'],
+  import: ['M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5'],
+  play: ['m9 5 11 7-11 7Z'],
+  close: ['m6 6 12 12M18 6 6 18'],
+  fullscreen: ['M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5'],
+  cinema: ['M3 5h18v13H3zM8 22l4-4 4 4'],
+  spark: ['m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4Z'],
+  info: ['M12 8h.01M12 11v6', 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0'],
+  arrow: ['M5 12h14m-5-5 5 5-5 5'],
+};
+export function icon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '20', height: '20', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(key, value);
+  for (const d of paths[name] ?? paths.play) { const path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', d); svg.append(path); }
+  return svg;
+}
+export function decorateIcons() { for (const item of document.querySelectorAll('[data-icon]')) item.replaceChildren(icon(item.dataset.icon)); }

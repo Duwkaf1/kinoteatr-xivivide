@@ -1,0 +1,32 @@
+name: Verify and build Windows
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Launch and check the real desktop application
+        run: npm run test:desktop
+      - run: npm run package:win
+      - name: Archive application
+        shell: pwsh
+        run: 7z a artifacts/Kadr-windows-x64.zip ./artifacts/Kadr-win32-x64/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kadr-windows-x64
+          path: artifacts/Kadr-windows-x64.zip
+          if-no-files-found: error

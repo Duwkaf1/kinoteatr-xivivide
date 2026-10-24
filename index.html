@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src https: blob:; connect-src 'self' https:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
+    <title>Кадр — аниме</title>
+    <link rel="stylesheet" href="/src/style.css">
+  </head>
+  <body>
+    <aside>
+      <button class="brand" id="home-button" aria-label="Кадр — библиотека"><span class="brand-icon">К</span> кадр<span class="brand-dot">●</span></button>
+      <p class="eyebrow">ТВОЙ СЕАНС</p>
+      <nav aria-label="Разделы">
+        <button data-view="library" class="nav active" aria-current="page" aria-label="Библиотека"><span data-icon="library"></span><span>Библиотека</span><span id="library-count" class="nav-count">0</span></button>
+        <button data-view="favorites" class="nav" aria-label="Избранное"><span data-icon="heart"></span><span>Избранное</span><span id="favorite-count" class="nav-count">0</span></button>
+        <button data-view="history" class="nav" aria-label="История"><span data-icon="history"></span><span>История</span></button>
+        <button data-view="sources" class="nav" aria-label="Источники"><span data-icon="sources"></span><span>Источники</span></button>
+      </nav>
+      <div class="sidebar-note"><span class="dot"></span> Только русская озвучка<p>AniDUB → AniLibria → другая русская</p></div>
+      <button id="motion-toggle" class="motion-toggle" aria-pressed="false"><span data-icon="spark"></span> Меньше анимаций</button>
+      <div class="version">КАДР / РАННЯЯ ВЕРСИЯ 0.2</div>
+    </aside>
+    <main>
+      <header><div class="breadcrumb"><span class="header-dot"></span> ЛИЧНЫЙ КИНОЗАЛ <span>/</span> АНИМЕ</div><div class="header-actions"><button id="import-button" class="quiet"><span data-icon="import"></span>Импорт списка</button><button id="add-button" class="primary"><span aria-hidden="true">＋</span> Добавить аниме</button></div></header>
+      <section id="hero" class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy"><p id="hero-eyebrow" class="eyebrow">ВРЕМЯ ДЛЯ СЕБЯ</p><h2 id="hero-title">Ещё одна серия.<br>Ещё одна история.</h2><p id="hero-description">Собери свой аниме-вечер. Любимые истории, выбранная озвучка и место, к которому хочется вернуться.</p><div class="hero-actions"><button id="hero-button" class="primary"><span data-icon="play"></span><span id="hero-button-label">Собрать библиотеку</span></button><span id="hero-caption">Твоя коллекция — в одном месте</span></div></div>
+        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-outer"></div><div class="orbit orbit-inner"></div><div class="cinema-ticket"><span class="ticket-top">KADR CINEMA CLUB</span><span class="ticket-symbol">カ</span><span class="ticket-bottom">ТВОЙ ВЕЧЕР · ТВОЯ ИСТОРИЯ</span></div><span class="art-caption">PRESS PLAY & ENJOY THE STORY</span></div>
+      </section>
+      <section class="page-heading"><div><p class="eyebrow">СМОТРИ В СВОЁМ РИТМЕ</p><h1 id="view-title">Моя библиотека</h1><p id="view-description" class="muted">Любимые истории. На том месте, где ты остановился.</p></div><label id="search-label" class="search">⌕ <input id="search" type="search" placeholder="Найти в библиотеке" aria-label="Найти в библиотеке"></label></section>
+      <section id="library-view" aria-label="Список аниме"><div class="shelf-toolbar"><p id="result-count" aria-live="polite">0 аниме</p><label class="sort-label">Порядок <select id="sort" aria-label="Сортировка библиотеки"><option value="added">Сначала новые</option><option value="title">По названию</option><option value="recent">Недавно смотрел</option></select></label></div><div id="library-grid" class="grid"></div><button id="load-more" class="quiet" hidden>Показать ещё</button></section>
+      <section id="sources-view" hidden>
+        <div class="notice"><span data-icon="info"></span><div><strong>Сайты пока открываются отдельно</strong><p>Автоматический выбор серий и озвучек на этих сайтах ещё не подключён. Их можно открыть в отдельном окне приложения.</p></div></div>
+        <div id="source-cards" class="grid"></div>
+        <div class="info-box"><h3>Как работает восстановление</h3><p>Для прямых видеоссылок: повторная попытка, затем другой источник той же серии. Выбранное качество сохраняется. При смене озвучки появится сообщение. При полном отказе источников воспроизведение остановится с объяснением.</p><p>Ссылка на страницу сайта не является прямой ссылкой на видео. Для каждого сайта нужен проверенный адаптер.</p></div>
+      </section>
+      <section id="player-section" hidden>
+        <div class="player-heading"><div><p class="eyebrow">СЕЙЧАС В КАДРЕ</p><h2 id="playing-title"></h2></div><div class="player-heading-actions"><button id="focus-button" class="quiet" aria-pressed="false"><span data-icon="cinema"></span><span id="focus-label">Кинозал</span></button><button id="close-player" class="icon-button" aria-label="Закрыть плеер" title="Закрыть плеер"><span data-icon="close"></span></button></div></div>
+        <div id="video-host"></div><p id="playback-status" role="status" aria-live="polite"></p>
+        <div class="player-toolbar"><label>Качество <select id="quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label><button id="retry-button" class="quiet" hidden>Повторить</button><button id="fullscreen-button" class="icon-button" aria-label="На весь экран" title="На весь экран · F"><span data-icon="fullscreen"></span></button><button id="next-button" class="primary">Следующая серия →</button></div>
+        <div class="shortcut-hint"><span><kbd>Пробел</kbd> пауза</span><span><kbd>←</kbd><kbd>→</kbd> 10 сек</span><span><kbd>F</kbd> весь экран</span><span><kbd>M</kbd> звук</span></div>
+        <div id="episode-list" class="episodes"></div>
+        <details class="info-box"><summary>Демонстрация в Discord</summary><p>В установленном Discord выбери демонстрацию окна «Кадр» и включи передачу звука. Плеер использует обычный аудиовыход Windows. Не транслируй весь экран, если нужен только звук приложения.</p><p>Захват звука и изображения ещё нужно проверить на Windows. При проблемах с аппаратным ускорением запусти приложение с параметром --disable-gpu.</p></details>
+      </section>
+      <footer><span>Твой прогресс сохраняется на этом устройстве</span><span>Качество без автоматического снижения · Без скачивания серий</span></footer>
+    </main>
+    <dialog id="add-dialog"><form id="add-form"><p class="eyebrow">НОВАЯ ИСТОРИЯ</p><h2>Добавить аниме</h2><p class="muted">Пока доступны прямые HTTPS-ссылки MP4, WebM и HLS. Подключение каталогов сайтов в работе.</p><label>Название<input name="title" required maxlength="160" placeholder="Название аниме"></label><label>Ссылка на видео<input name="url" type="url" required placeholder="https://…/episode.m3u8"></label><div class="form-row"><label>Озвучка<select name="voice"><option>AniDUB</option><option>AniLibria</option><option>Русская</option></select></label><label>Качество<select name="quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label></div><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-add" class="quiet">Отмена</button><button class="primary" type="submit">Добавить</button></div></form></dialog>
+    <input id="import-file" type="file" accept="application/json,.json" hidden>
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
