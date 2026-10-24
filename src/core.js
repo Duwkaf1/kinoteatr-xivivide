@@ -44,24 +44,27 @@ export function validateLibrary(data) {
   });
 }
 
-export function rankSources(sources, quality) {
-  return sources.filter(s => s.language === 'ru' && s.quality === quality)
+export function rankSources(sources, quality, options = {}) {
+  const priority = voice => { const rank = voiceRank(voice); return options.voicePriority === 'anilibria' && rank < 2 ? 1 - rank : rank; };
+  return sources.filter(s => s.language === 'ru' && s.quality === quality && (options.allowOtherRussian !== false || voiceRank(s.voice) < 2))
     .map((source, index) => ({ source, index }))
-    .sort((a, b) => voiceRank(a.source.voice) - voiceRank(b.source.voice) || a.index - b.index)
+    .sort((a, b) => priority(a.source.voice) - priority(b.source.voice) || a.index - b.index)
     .map(item => item.source);
 }
 
-// Bounded: one initial attempt and one retry per source. No automatic quality drop.
+// Bounded attempts; exact selected quality and explicit Russian audio always apply.
 export class PlaybackPlan {
-  constructor(sources, quality) {
-    this.sources = rankSources(sources, quality);
+  constructor(sources, quality, options = {}) {
+    this.sources = rankSources(sources, quality, options);
+    if (options.autoSwitch === false) this.sources = this.sources.slice(0, 1);
+    this.maxAttempts = Number.isFinite(options.attempts) ? Math.min(5, Math.max(1, Math.round(options.attempts))) : 2;
     this.index = 0;
     this.attempt = 1;
   }
   get current() { return this.sources[this.index] ?? null; }
   fail() {
     if (!this.current) return null;
-    if (this.attempt < 2) this.attempt++;
+    if (this.attempt < this.maxAttempts) this.attempt++;
     else { this.index++; this.attempt = 1; }
     return this.current;
   }

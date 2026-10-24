@@ -1,7 +1,7 @@
 import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL } from './core.js';
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
-import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion } from './preferences.js';
+import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
 import { DEFAULT_CUSTOM, isHexColor, contrast, applyCustom } from './custom-theme.js';
 
 const $ = selector => document.querySelector(selector);
@@ -16,11 +16,12 @@ let video = null;
 let hls = null;
 let generation = 0;
 let stallTimer;
+let loadingTimer;
 let cleanup = () => {};
 let toastTimer;
 let resumeAt = 0;
 let lastSave = 0;
-const pageSize = () => profileConfig(preferences.profile).pageSize;
+const pageSize = () => profileConfig(preferences.profile, preferences.manual).pageSize;
 let visibleCount = pageSize();
 let searchTimer;
 let hlsModule;
@@ -39,6 +40,21 @@ function applyPreferences() {
   const ratio = Math.min(contrast(preferences.custom.text, preferences.custom.background), contrast(preferences.custom.text, preferences.custom.panel));
   $('#custom-contrast').textContent = ratio < 4.5 ? 'У текста низкий контраст с фоном или панелями — его может быть сложно читать. Попробуй более светлый или тёмный цвет.' : 'Контраст основного текста с фоном и панелями достаточный.';
   document.body.dataset.profile = preferences.profile;
+  document.body.classList.toggle('compact-ui', preferences.interface.compact);
+  document.documentElement.style.setProperty('--text-scale', String(preferences.interface.textSize / 100));
+  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero;
+  $('#manual-buffer-settings').hidden = preferences.profile !== 'manual';
+  $('#manual-back-buffer').max = String(Math.min(30, preferences.manual.bufferSeconds));
+  for (const input of document.querySelectorAll('[data-settings-group]')) {
+    const value = preferences[input.dataset.settingsGroup][input.dataset.setting];
+    if (input.type === 'checkbox') input.checked = value;
+    else if (document.activeElement !== input) { input.value = String(value); input.removeAttribute('aria-invalid'); }
+  }
+  $('#volume-value').textContent = `${preferences.playback.volume}%`;
+  $('#text-size-value').textContent = `${preferences.interface.textSize}%`;
+  $('#seek-hint').textContent = `${preferences.playback.seekSeconds} сек`;
+  $('.shortcut-hint').hidden = !preferences.playback.shortcuts;
+  $('.sidebar-note p').textContent = `${preferences.playback.voicePriority === 'anilibria' ? 'AniLibria → AniDUB' : 'AniDUB → AniLibria'}${preferences.playback.allowOtherRussian ? ' → другая русская' : ''}`;
   const reduce = shouldReduceMotion(preferences, reducedMotion.matches);
   document.body.classList.toggle('less-motion', reduce);
   document.body.classList.toggle('economy-mode', preferences.profile === 'economy');
@@ -53,7 +69,7 @@ function applyPreferences() {
   $('#quality').value = String(active?.quality ?? state.quality);
   for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
   for (const input of document.querySelectorAll('input[name="profile"]')) input.checked = input.value === preferences.profile;
-  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Экономия' }[preferences.profile];
+  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Экономия', manual: 'Вручную' }[preferences.profile];
   $('#footer-mode').textContent = `${label} · ${state.quality}p по умолчанию · Без скачивания серий`;
 }
 function storePreferences() {
@@ -86,13 +102,41 @@ $('#reset-custom-theme').onclick = () => {
 };
 for (const input of document.querySelectorAll('input[name="profile"]')) input.onchange = () => {
   preferences.profile = input.value;
-  state.quality = profileConfig(preferences.profile).quality;
+  if (preferences.profile !== 'manual') state.quality = profileConfig(preferences.profile).quality;
+  else $('#advanced-settings').open = true;
   visibleCount = pageSize(); persist(true); applyPreferences(); storePreferences(); renderLibrary();
 };
 $('#animations-setting').onchange = event => { preferences.animations = event.target.checked; applyPreferences(); storePreferences(); };
 $('#auto-next-setting').onchange = event => { preferences.autoNext = event.target.checked; applyPreferences(); storePreferences(); };
 $('#default-quality').onchange = event => { state.quality = Number(event.target.value); persist(true); applyPreferences(); $('#settings-save-status').textContent = writable ? 'Настройки сохранены' : 'Качество применено до закрытия приложения: сохранение недоступно.'; };
+for (const input of document.querySelectorAll('[data-settings-group]')) {
+  const change = () => {
+    if (!input.checkValidity() || (input.dataset.numeric && !Number.isFinite(input.valueAsNumber ?? Number(input.value)))) {
+      input.setAttribute('aria-invalid', 'true'); $('#advanced-error').textContent = 'Проверь значение: используй диапазон и шаг, указанные рядом с параметром.'; return;
+    }
+    const group = input.dataset.settingsGroup; const key = input.dataset.setting;
+    const value = input.type === 'checkbox' ? input.checked : input.dataset.numeric ? Number(input.value) : input.value;
+    Object.assign(preferences, validatePreferences({ ...preferences, [group]: { ...preferences[group], [key]: value } }));
+    input.removeAttribute('aria-invalid'); $('#advanced-error').textContent = '';
+    if (video && group === 'playback') {
+      if (key === 'volume') video.volume = preferences.playback.volume / 100;
+      if (key === 'speed') { video.defaultPlaybackRate = preferences.playback.speed; video.playbackRate = preferences.playback.speed; }
+    }
+    if (group === 'manual') visibleCount = pageSize();
+    applyPreferences(); storePreferences();
+    if (group === 'manual' || group === 'interface') renderLibrary();
+  };
+  if (input.dataset.live) input.oninput = change; else input.onchange = change;
+}
+$('#reset-advanced').onclick = () => {
+  preferences.manual = defaultManual(); preferences.playback = defaultPlayback(); preferences.interface = defaultInterface();
+  $('#advanced-error').textContent = ''; for (const input of document.querySelectorAll('[data-settings-group]')) input.removeAttribute('aria-invalid');
+  if (video) { video.volume = preferences.playback.volume / 100; video.defaultPlaybackRate = preferences.playback.speed; video.playbackRate = preferences.playback.speed; }
+  visibleCount = pageSize(); applyPreferences(); storePreferences(); renderLibrary();
+  toast('Ручные параметры сброшены. Библиотека, оформление и разрешение сохранены.');
+};
 applyPreferences();
+if (preferences.profile === 'manual') $('#advanced-settings').open = true;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -200,7 +244,7 @@ function changeView(next) {
   const libraryVisible = ['library', 'favorites', 'history'].includes(view);
   $('#sources-view').hidden = view !== 'sources'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
   $('#settings-view').hidden = view !== 'settings';
-  $('#hero').hidden = view !== 'library';
+  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero;
   renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : view === 'settings' ? $('#settings-view') : $('#library-view'));
 }
 for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => changeView(button.dataset.view);
@@ -249,6 +293,7 @@ $('#import-file').onchange = async event => {
 function stopMedia() {
   generation++;
   clearTimeout(stallTimer);
+  clearTimeout(loadingTimer);
   cleanup(); cleanup = () => {};
   if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
   if (hls) { hls.destroy(); hls = null; }
@@ -270,11 +315,12 @@ function openTitle(title) {
   startEpisode(title, episode, progress?.time ?? 0);
 }
 function startEpisode(title, episode, time) {
-  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile) };
-  resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality);
+  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback } };
+  resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, active.recovery);
   $('#player-section').hidden = false;
   $('#playing-title').textContent = `${title.title} · Серия ${episode.number}`;
   $('#quality').value = String(state.quality); $('#retry-button').hidden = true; episodeButtons();
+  setFocusMode(preferences.interface.cinema);
   reveal($('#player-section'));
   $('#player-section').scrollIntoView({ behavior: motionEnabled() ? 'smooth' : 'instant', block: 'start' });
   startSource();
@@ -289,19 +335,21 @@ function nextEpisode() {
 async function startSource() {
   stopMedia();
   const source = plan.current;
-  if (!source) { status(`Нет доступного источника с русской озвучкой в ${active.quality}p. Качество не снижено. Добавь резервный источник или повтори позже.`); $('#retry-button').hidden = false; return; }
+  if (!source) { status(`Нет доступного источника с русской озвучкой в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь резервный источник или повтори позже.' : 'Автосмена источника отключена. Повтори позже или включи её в настройках.'}`); $('#retry-button').hidden = false; return; }
   const token = generation;
   const targetQuality = active.quality;
   const config = active.config;
+  const timeoutMs = active.recovery.timeoutSeconds * 1000;
   const element = node('video'); video = element;
   element.controls = true; element.preload = 'metadata'; element.playsInline = true;
+  element.volume = preferences.playback.volume / 100; element.defaultPlaybackRate = preferences.playback.speed; element.playbackRate = preferences.playback.speed;
   element.setAttribute('aria-label', 'Видеоплеер'); $('#video-host').append(element);
   const listeners = [];
   const on = (name, fn) => { element.addEventListener(name, fn); listeners.push([name, fn]); };
   cleanup = () => { for (const [name, fn] of listeners) element.removeEventListener(name, fn); };
   let recovering = false;
   let switching = false;
-  status(`${source.voice} · ${source.quality}p · попытка ${plan.attempt}/2`);
+  status(`${source.voice} · ${source.quality}p · попытка ${plan.attempt}/${plan.maxAttempts}`);
   const fail = () => {
     if (token !== generation || recovering) return;
     recovering = true;
@@ -313,11 +361,12 @@ async function startSource() {
   };
   const watchdog = () => {
     clearTimeout(stallTimer);
-    if (!element.paused && !element.ended && token === generation) stallTimer = setTimeout(fail, 15000);
+    if (!element.paused && !element.ended && token === generation) stallTimer = setTimeout(fail, timeoutMs);
   };
+  loadingTimer = setTimeout(fail, timeoutMs);
   on('waiting', watchdog); on('stalled', watchdog);
   on('playing', () => { clearTimeout(stallTimer); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
-  on('pause', () => { clearTimeout(stallTimer); document.body.classList.remove('is-playing'); recordProgress(true); });
+  on('pause', () => { clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); recordProgress(true); });
   on('play', watchdog);
   on('timeupdate', () => {
     if (!element.seeking && element.currentTime > resumeAt) resumeAt = element.currentTime;
@@ -328,6 +377,8 @@ async function startSource() {
   on('ended', () => { recordProgress(true); if (preferences.autoNext) nextEpisode(); else status('Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
+    clearTimeout(loadingTimer);
+    element.defaultPlaybackRate = preferences.playback.speed; element.playbackRate = preferences.playback.speed;
     if (resumeAt > 0) element.currentTime = Number.isFinite(element.duration) ? Math.min(resumeAt, Math.max(0, element.duration - 0.5)) : resumeAt;
     element.play().catch(() => { if (token === generation) status('Нажми ▶ в плеере, чтобы начать просмотр.'); });
   });
@@ -338,7 +389,7 @@ async function startSource() {
     if (token !== generation) return;
     if (!Hls.isSupported()) { status('В этой среде HLS не поддерживается. Попробуй приложение Windows или MP4.'); $('#retry-button').hidden = false; return; }
     hls = new Hls({ autoStartLoad: false, maxBufferLength: config.maxBufferLength, maxMaxBufferLength: config.maxMaxBufferLength, backBufferLength: config.backBufferLength, maxBufferSize: config.maxBufferSize, enableWorker: true,
-      manifestLoadPolicy: { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 12000, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
+      manifestLoadPolicy: { default: { maxTimeToFirstByteMs: timeoutMs, maxLoadTimeMs: timeoutMs, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });
     const engine = hls;
     engine.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -368,6 +419,7 @@ $('#fullscreen-button').onclick = fullscreen;
 document.addEventListener('keydown', event => {
   if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || event.target.closest('input,select,textarea,[contenteditable="true"]') || $('#add-dialog').open) return;
   if (event.key === 'Escape') { setFocusMode(false); return; }
+  if (!preferences.playback.shortcuts) return;
   if (!video || !active) return;
   const key = event.key.toLowerCase();
   if ([' ', 'f', 'm', 'arrowleft', 'arrowright'].includes(key)) {
@@ -377,8 +429,8 @@ document.addEventListener('keydown', event => {
     if (key === ' ') { if (video.paused) video.play().catch(() => toast('Нажми кнопку воспроизведения в плеере.')); else video.pause(); }
     if (key === 'm') video.muted = !video.muted;
     if (key === 'f') fullscreen();
-    if (key === 'arrowleft') video.currentTime = Math.max(0, video.currentTime - 10);
-    if (key === 'arrowright') video.currentTime = Math.min(Number.isFinite(video.duration) ? video.duration : video.currentTime + 10, video.currentTime + 10);
+    if (key === 'arrowleft') video.currentTime = Math.max(0, video.currentTime - preferences.playback.seekSeconds);
+    if (key === 'arrowright') video.currentTime = Math.min(Number.isFinite(video.duration) ? video.duration : video.currentTime + preferences.playback.seekSeconds, video.currentTime + preferences.playback.seekSeconds);
   }
 });
 $('#close-player').onclick = () => { recordProgress(true); stopMedia(); setFocusMode(false); active = null; plan = null; $('#player-section').hidden = true; renderLibrary(); $('#view-title').focus({ preventScroll: true }); };

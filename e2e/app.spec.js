@@ -322,3 +322,89 @@ test('custom editor rejects invalid HEX, warns about contrast and can reset', as
   await expect(page.locator('#custom-color-error')).toBeEmpty();
   await expect(page.locator('#custom-contrast')).toContainText('достаточный');
 });
+
+test('manual buffering and interface preferences persist and reset without touching theme/library', async ({ page }) => {
+  const titles = Array.from({ length: 40 }, (_, i) => ({ ...anime([source('first')]), id: `manual-${i}`, title: `История ${i}` }));
+  await seed(page, titles); await open(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="theme"][value="cream"]').check();
+  await page.locator('input[name="profile"][value="manual"]').check();
+  await expect(page.locator('#advanced-settings')).toHaveAttribute('open', '');
+  for (const [selector, value] of [['#manual-buffer', '45'], ['#manual-back-buffer', '10'], ['#manual-memory', '64']]) { await page.locator(selector).fill(value); await page.locator(selector).blur(); }
+  await page.locator('#manual-cards').selectOption('12');
+  await page.locator('#compact-setting').check(); await page.locator('#hero-setting').uncheck();
+  await page.locator('#text-size').fill('120');
+  await page.reload();
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('#manual-buffer')).toHaveValue('45'); await expect(page.locator('#manual-memory')).toHaveValue('64');
+  await expect(page.locator('#text-size')).toHaveValue('120');
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await expect(page.locator('.anime-card')).toHaveCount(12); await expect(page.locator('#hero')).toBeHidden();
+  await expect(page.locator('body')).toHaveClass(/compact-ui/);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.setViewportSize({ width: 960, height: 680 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/settings-advanced.png', fullPage: true });
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await page.locator('#advanced-settings').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  await page.screenshot({ path: 'test-results/settings-advanced-preview.png' });
+  await page.locator('#reset-advanced').click();
+  await expect(page.locator('#manual-buffer')).toHaveValue('20');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'cream');
+  expect(await page.locator('#library-count').textContent()).toBe('40');
+});
+
+test('manual recovery count and disabled failover affect real failed media requests', async ({ page }) => {
+  const requests = [];
+  await seed(page, [anime([source('bad'), source('backup', 'AniLibria')])]);
+  await page.route('https://media.example.test/**', route => { requests.push(new URL(route.request().url()).pathname); return route.abort('failed'); });
+  await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#advanced-settings > summary').click();
+  await page.locator('#recovery-attempts').fill('3'); await page.locator('#recovery-attempts').blur();
+  await page.locator('#auto-switch').uncheck();
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('Автосмена источника отключена');
+  expect(requests.filter(p => p === '/bad.webm').length).toBe(3); expect(requests).not.toContain('/backup.webm');
+});
+
+test('voice selection, live volume/speed and disabled shortcuts work in the player', async ({ page }) => {
+  const requests = [];
+  await seed(page, [anime([source('dub'), source('lib', 'AniLibria')])]);
+  await page.route('https://media.example.test/**', route => { requests.push(new URL(route.request().url()).pathname); return fulfillVideo(route); });
+  await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#advanced-settings > summary').click(); await page.locator('#voice-priority').selectOption('anilibria');
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('AniLibria · 1080p · воспроизведение'); expect(requests).not.toContain('/dub.webm');
+  await page.locator('video').evaluate(v => { v.pause(); v.dataset.original = 'yes'; });
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#default-volume').fill('32'); await page.locator('#default-speed').selectOption('1.5');
+  await expect(page.locator('video')).toHaveJSProperty('volume', 0.32); await expect(page.locator('video')).toHaveJSProperty('playbackRate', 1.5);
+  await expect(page.locator('video')).toHaveJSProperty('paused', true); await expect(page.locator('video')).toHaveAttribute('data-original', 'yes');
+  await page.locator('#shortcuts-setting').uncheck(); await page.locator('#playing-title').click(); await page.keyboard.press('m');
+  await expect(page.locator('video')).toHaveJSProperty('muted', false);
+  await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await expect(page.locator('video')).toHaveJSProperty('volume', 0.32); await expect(page.locator('video')).toHaveJSProperty('playbackRate', 1.5);
+});
+
+test('configured load timeout recovers from a media request that never supplies metadata', async ({ page }) => {
+  let release; const held = new Promise(resolve => { release = resolve; });
+  await seed(page, [anime([source('slow'), source('backup', 'AniLibria')])]);
+  await page.route('https://media.example.test/**', async route => {
+    if (route.request().url().includes('/slow.webm')) { await held; await route.abort().catch(() => {}); return; }
+    return fulfillVideo(route);
+  });
+  try {
+    await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.locator('#advanced-settings > summary').click();
+    await page.locator('#recovery-attempts').fill('1'); await page.locator('#recovery-attempts').blur();
+    await page.locator('#recovery-timeout').fill('5'); await page.locator('#recovery-timeout').blur();
+    await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+    await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+    await expect(page.locator('#playback-status')).toContainText('AniLibria · 1080p · воспроизведение', { timeout: 12000 });
+  } finally { release(); }
+});

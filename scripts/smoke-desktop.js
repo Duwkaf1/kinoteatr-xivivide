@@ -46,6 +46,15 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--custom-background')), '#182030');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   assert.equal(await page.locator('#custom-radius').inputValue(), '32');
+  await page.locator('input[name="profile"][value="manual"]').check();
+  await page.locator('#manual-memory').fill('48'); await page.locator('#manual-memory').blur();
+  await page.locator('#recovery-attempts').fill('3'); await page.locator('#recovery-attempts').blur();
+  await page.locator('#default-volume').fill('55'); await page.locator('#default-speed').selectOption('1.25');
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  assert.equal(await page.locator('#manual-memory').inputValue(), '48');
+  assert.equal(await page.locator('#recovery-attempts').inputValue(), '3');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проверка desktop');
@@ -58,6 +67,8 @@ try {
   await page.route('https://media.example.invalid/desktop.webm', route => route.fulfill({ contentType: 'video/webm', headers: { 'access-control-allow-origin': '*' }, body: media }));
   await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
   await page.waitForFunction(() => { const video = document.querySelector('video'); return video?.currentTime > 0 && video.videoHeight === 90; }, undefined, { timeout: 15000 });
+  assert.equal(await page.locator('video').evaluate(v => v.volume), 0.55);
+  assert.equal(await page.locator('video').evaluate(v => v.playbackRate), 1.25);
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   const rejection = await page.evaluate(async () => { try { await window.kadr.openSource('not-allowed'); return false; } catch { return true; } });
   assert.equal(rejection, true, 'IPC must reject arbitrary destinations');

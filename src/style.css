@@ -352,3 +352,27 @@ aside { overflow-y: auto; scrollbar-width: thin; }
 #custom-contrast { color: #c4d5eb; font-size: 11px; line-height: 1.8; margin: 12px 0; }
 @media (max-width: 1120px) { .theme-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .custom-colors { grid-template-columns: repeat(2, minmax(0, 1fr)); } .custom-editor-heading { flex-direction: column; } }
 @media (max-width: 800px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .radius-control { flex-wrap: wrap; } .custom-theme-editor { padding: 19px; } }
+
+/* Detailed settings remain opt-in and use the same palette. */
+:root { --text-scale: 1; }
+.profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.advanced-settings > summary { font-size: calc(18px * var(--text-scale)); font-weight: 500; padding: 2px 0; }
+.advanced-settings > .settings-description { margin-top: 18px; }
+.advanced-settings h3 { margin-top: 30px; }
+.advanced-settings .setting-row input[type="number"] { width: 100px; flex: 0 0 auto; padding: 10px; border-radius: 13px; color: var(--text); background: var(--surface-soft); border: 1px solid var(--line); }
+.advanced-settings input[aria-invalid="true"] { border-color: #ce665f; }
+.advanced-settings .setting-row select { max-width: 240px; }
+.range-setting { display: flex; align-items: center; gap: 10px; min-width: 170px; }
+.range-setting input { width: 125px; accent-color: var(--accent); }
+.range-setting output { min-width: 35px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#advanced-error { color: #d58477; font-size: 12px; line-height: 1.8; }
+h1 { font-size: calc(28px * var(--text-scale)); }
+.nav, .setting-row label, .choice-title { font-size: calc(14px * var(--text-scale)); }
+.primary, .quiet, .muted, .settings-description, .setting-row select, .setting-row input[type="number"] { font-size: calc(12px * var(--text-scale)); }
+.choice-description, .setting-row p, .settings-hint, .settings-bottom { font-size: calc(11px * var(--text-scale)); }
+.card-info h3 { font-size: calc(14px * var(--text-scale)); }
+.compact-ui .grid { gap: 14px; }
+.compact-ui .artwork { aspect-ratio: 4 / 3.6; }
+.compact-ui .anime-card { contain-intrinsic-size: auto 280px; }
+.compact-ui .card-info { padding-top: 12px; padding-bottom: 12px; }
+@media (max-width: 800px) { .profile-grid { grid-template-columns: 1fr; } .range-setting { min-width: 130px; } .range-setting input { width: 90px; } }
