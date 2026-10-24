@@ -1,4 +1,5 @@
 import { DEFAULT_CUSTOM, validateCustom } from './custom-theme.js';
+import { defaultWatching, validateWatching } from './watching.js';
 export const THEMES = Object.freeze(['night', 'nord', 'sakura', 'cream', 'custom']);
 export const PROFILES = Object.freeze({
   quality: { quality: 1080, pageSize: 24, maxBufferLength: 30, maxMaxBufferLength: 45, backBufferLength: 8, maxBufferSize: 40 * 1024 * 1024 },
@@ -10,7 +11,7 @@ const KEY = 'kadr.preferences.v1';
 export const defaultManual = () => ({ bufferSeconds: 20, backBufferSeconds: 5, memoryMB: 24, cardsPerPage: 24 });
 export const defaultPlayback = () => ({ attempts: 2, timeoutSeconds: 15, autoSwitch: true, voicePriority: 'anidub', allowOtherRussian: true, volume: 100, speed: 1, seekSeconds: 10, shortcuts: true });
 export const defaultInterface = () => ({ textSize: 100, compact: false, showHero: true, cinema: false });
-export const defaultPreferences = () => ({ theme: 'night', profile: 'quality', animations: true, autoNext: true, custom: { ...DEFAULT_CUSTOM }, manual: defaultManual(), playback: defaultPlayback(), interface: defaultInterface() });
+export const defaultPreferences = () => ({ theme: 'night', profile: 'quality', animations: true, autoNext: true, custom: { ...DEFAULT_CUSTOM }, manual: defaultManual(), playback: defaultPlayback(), interface: defaultInterface(), watching: defaultWatching() });
 const bounded = (value, fallback, min, max) => Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
 const flag = (value, fallback) => typeof value === 'boolean' ? value : fallback;
 export function validateManual(input = {}) {
@@ -32,6 +33,7 @@ export function validatePreferences(input) {
     custom: validateCustom(value.custom),
     manual: validateManual(value.manual),
     playback: validatePlayback(value.playback),
+    watching: validateWatching(value.watching),
     interface: { textSize: bounded(value.interface?.textSize, 100, 90, 120), compact: flag(value.interface?.compact, false), showHero: flag(value.interface?.showHero, true), cinema: flag(value.interface?.cinema, false) },
   };
 }

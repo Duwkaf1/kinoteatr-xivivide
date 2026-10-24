@@ -5,3 +5,5 @@ artifacts/
 playwright-report/
 test-results/
 *.log
+
+/public/vendor/

@@ -105,7 +105,9 @@ test('empty library, site cards and manual import errors are explicit', async ({
   await page.getByRole('button', { name: 'Источники' }).click();
   await expect(page.getByText('g0e-1ka1v5q.troutcdn.site', { exact: true })).toBeVisible();
   await expect(page.getByText('brogiro.cfd', { exact: true })).toBeVisible();
-  await expect(page.getByText('ТРЕБУЕТ ПРОВЕРКИ')).toHaveCount(2);
+  await expect(page.getByText('old.yummyani.me', { exact: true })).toBeVisible();
+  await expect(page.getByText('animejoy.ru', { exact: true })).toBeVisible();
+  await expect(page.getByText('ТРЕБУЕТ ПРОВЕРКИ')).toHaveCount(4);
   await page.locator('#import-file').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
   await expect(page.locator('#toast')).toContainText('Импорт не выполнен');
   await page.screenshot({ path: 'test-results/sources.png', fullPage: true });
@@ -473,4 +475,153 @@ test('configured load timeout recovers from a media request that never supplies 
     await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
     await expect(page.locator('#playback-status')).toContainText('AniLibria · 1080p · воспроизведение', { timeout: 12000 });
   } finally { release(); }
+});
+
+const originalSource = id => ({ ...source(id, 'Оригинал', 'ja'), audioType: 'original', label: id });
+const studioTracks = [
+  { id: 'a', label: 'Перевод А', language: 'ru', format: 'vtt', content: 'WEBVTT\n\n00:00.000 --> 00:08.000\nЭто перевод студии А.' },
+  { id: 'b', label: 'Перевод Б', language: 'ru', format: 'srt', content: '1\n00:00:00,000 --> 00:00:08,000\nУ студии Б другие слова.' },
+];
+
+test('original audio, studio variants and source/engine changes preserve pause, position and audio state', async ({ page }) => {
+  const title = anime([originalSource('jp-a'), originalSource('jp-b'), source('russian'), source('english', 'English dub', 'en')]);
+  title.episodes[0].subtitles = studioTracks;
+  await seed(page, [title]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await page.locator('#watch-audio-mode').selectOption('original');
+  await expect(page.locator('#source-player option')).toHaveCount(2);
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await expect(page.locator('#subtitle-selector')).toHaveValue('a');
+  await expect.poll(() => page.locator('video').evaluate(v => [...v.textTracks].flatMap(t => [...(t.cues || [])]).map(c => c.text).join(''))).toContain('перевод студии А');
+  const before = await page.locator('video').elementHandle();
+  await page.locator('#subtitle-selector').selectOption('b');
+  await expect.poll(() => page.locator('video').evaluate(v => [...v.textTracks].flatMap(t => [...(t.cues || [])]).map(c => c.text).join(''))).toContain('другие слова');
+  expect(await page.locator('video').evaluate((v, old) => v === old, before)).toBe(true);
+  await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 2; v.volume = 0.37; v.muted = true; v.playbackRate = 1.25; });
+  await page.locator('#source-player').selectOption('jp-b');
+  await expect(page.locator('#playback-status')).toContainText('пауза');
+  expect(await page.locator('video').evaluate(v => ({ paused: v.paused, muted: v.muted, volume: v.volume, rate: v.playbackRate, time: Math.round(v.currentTime) }))).toEqual({ paused: true, muted: true, volume: 0.37, rate: 1.25, time: 2 });
+  await page.locator('#player-engine').selectOption('videojs');
+  await expect(page.locator('#video-host .video-js')).toBeVisible();
+  await expect(page.locator('#playback-status')).toContainText('пауза');
+  expect(await page.locator('video').evaluate(v => ({ paused: v.paused, muted: v.muted, volume: v.volume, rate: v.playbackRate, time: Math.round(v.currentTime) }))).toEqual({ paused: true, muted: true, volume: 0.37, rate: 1.25, time: 2 });
+  await page.locator('#player-engine').selectOption('standard');
+  await expect(page.locator('#video-host .video-js')).toHaveCount(0);
+  await expect(page.locator('#playback-status')).toContainText('пауза');
+  await expect(page.locator('#subtitle-selector')).toHaveValue('b');
+  await page.getByText('Оформление субтитров', { exact: true }).click();
+  await page.locator('#subtitle-delay').fill('1'); await page.locator('#subtitle-delay').blur();
+  await expect.poll(() => page.locator('video').evaluate(v => v.textTracks[0]?.cues[0]?.startTime)).toBe(1);
+  expect(await page.locator('video').evaluate(v => v.textTracks[0].cues.length)).toBe(1);
+  await page.locator('#subtitle-size').fill('120'); await page.locator('#subtitle-size').blur();
+  await page.locator('#subtitle-background').uncheck();
+  expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--subtitle-size'))).toBe('28.8px');
+  await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
+  await expect(page.locator('video')).toHaveCount(0);
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.preferences.v1')).watching)).toMatchObject({ audioMode: 'original', engine: 'standard', subtitleVariant: 'Перевод Б', subtitleDelay: 1, subtitleSize: 120, subtitleBackground: false });
+});
+
+test('ASS/SSA renderer runs real WASM and local studio files persist without restarting video', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 1700 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await open(page); await serveVideo(page);
+  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await page.locator('#add-form [name=title]').fill('Оригинал с ASS');
+  await page.locator('#add-form [name=url]').fill('https://media.example.test/first.webm');
+  await page.locator('#add-form [name=audioType]').selectOption('original');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Оригинал с ASS', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 1; });
+  await page.locator('#edit-media').click();
+  const content = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Liberation Sans,32,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,20,20,20,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,ASS перевод студии В';
+  await page.locator('#subtitle-file').setInputFiles({ name: 'Студия В.ass', mimeType: 'text/plain', buffer: Buffer.from(content) });
+  await page.getByRole('button', { name: 'Добавить перевод', exact: true }).click();
+  await page.locator('#close-media-dialog').click();
+  await expect(page.locator('#subtitle-status')).toContainText('оформление автора', { timeout: 15000 });
+  await expect(page.locator('#video-host canvas')).toHaveCount(1);
+  await page.locator('#video-host').scrollIntoViewIfNeeded();
+  await page.locator('video').evaluate(v => { v.currentTime = 2; });
+  await expect.poll(() => page.locator('#video-host canvas').evaluate(canvas => [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].some((n, i) => i % 4 === 3 && n > 0)), { timeout: 10000 }).toBe(true);
+  expect(await page.evaluate(() => { const canvas = document.querySelector('#video-host canvas').getBoundingClientRect(); const video = document.querySelector('video').getBoundingClientRect(); return Math.abs(canvas.left - video.left) < 2 && canvas.right <= video.right + 2 && canvas.top >= video.top - 2 && canvas.bottom <= video.bottom + 2; })).toBe(true);
+  await expect.poll(() => page.locator('#video-host canvas').evaluate(canvas => [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].some((n, i) => i % 4 === 0 && n > 180))).toBe(true);
+  await page.locator('#video-host').screenshot({ path: 'test-results/ass-video.png' });
+  await page.locator('#player-section').screenshot({ path: 'test-results/original-ass-player.png' });
+  expect(errors).toEqual([]);
+  await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
+  await expect(page.locator('#video-host canvas')).toHaveCount(0);
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('ASS перевод студии В');
+});
+
+test('Video.js VHS plays an actual fixed-quality HLS master and rejects missing quality', async ({ page }) => {
+  const requests = [];
+  await seed(page, [anime([{ ...source('hls'), url: 'https://media.example.test/master.m3u8' }])]);
+  await page.addInitScript(() => localStorage.setItem('kadr.preferences.v1', JSON.stringify({ watching: { engine: 'videojs' } })));
+  await page.route('https://media.example.test/**', route => {
+    const name = new URL(route.request().url()).pathname; requests.push(name);
+    const headers = { 'access-control-allow-origin': '*' };
+    if (name === '/master.m3u8') return route.fulfill({ contentType: 'application/vnd.apple.mpegurl', headers, body: '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100000,RESOLUTION=1280x720\nlow.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=250000,RESOLUTION=1920x1080\nindex.m3u8\n' });
+    if (name === '/index.m3u8') return route.fulfill({ contentType: 'application/vnd.apple.mpegurl', headers, body: hlsManifest });
+    if (/^\/segment\d+\.ts$/.test(name)) return route.fulfill({ contentType: 'video/mp2t', headers, body: readFileSync(path.join(directory, name.slice(1))) });
+    return route.abort();
+  });
+  await open(page); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение', { timeout: 15000 });
+  expect(await page.locator('video').evaluate(v => v.videoHeight)).toBe(1080);
+  expect(requests).not.toContain('/low.m3u8');
+  await page.locator('#quality').selectOption('480');
+  await expect(page.locator('#playback-status')).toContainText('Качество не снижено');
+});
+
+test('AniDB season identity, XML cast, unknown episode membership and manual annotations remain distinct', async ({ page }) => {
+  const title = anime([source('first')]); title.seasons = [{ number: 1, anidbId: 123 }, { number: 2, anidbId: 456 }];
+  await seed(page, [title]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await page.locator('video').evaluate(v => v.pause());
+  await page.locator('#cast-panel > summary').click();
+  const xml = '<anime id="123"><titles><title type="main">Тестовый сезон AniDB</title></titles><characters><character id="1" type="main character in"><name>Персонаж А</name><seiyuu id="10">Актёр А</seiyuu></character><character id="2" type="secondary cast in"><name>Персонаж Б</name><seiyuu id="20">Актёр Б</seiyuu></character></characters><episodes><episode id="1001"><epno>1</epno><title>Серия один</title></episode></episodes></anime>';
+  await page.locator('#anidb-xml').setInputFiles({ name: 'anidb.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(2);
+  await expect(page.locator('#cast-list')).toContainText('Актёр А');
+  await page.locator('#cast-scope').selectOption('episode');
+  await expect(page.locator('#cast-status')).toContainText('данные ещё не отмечены');
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
+  await page.getByText('Отметить персонажей текущей серии', { exact: true }).click();
+  await page.locator('#cast-episode-editor input[value="2"]').check(); await page.locator('#save-episode-cast').click();
+  await expect(page.locator('#cast-status')).toContainText('отмечено вручную: 1');
+  await expect(page.locator('#cast-list')).toContainText('Персонаж Б');
+  await expect(page.locator('#cast-list')).not.toContainText('Персонаж А');
+  await page.screenshot({ path: 'test-results/anidb-cast.png', fullPage: true });
+  await page.locator('#cast-scope').selectOption('season'); await page.locator('#cast-season').selectOption('2');
+  await expect(page.locator('#anidb-id')).toHaveValue('456');
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
+  await page.locator('#anidb-xml').setInputFiles({ name: 'wrong-season.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
+  await expect(page.locator('#cast-status')).toContainText('не совпадает');
+  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await page.locator('#cast-panel > summary').click(); await page.locator('#cast-scope').selectOption('episode');
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(1);
+  await expect(page.locator('#cast-list')).toContainText('Персонаж Б');
+});
+
+test('website player pages can be added without pretending they are direct streams', async ({ page, context }) => {
+  await page.addInitScript(() => localStorage.setItem('kadr.preferences.v1', JSON.stringify({ watching: { audioMode: 'original' } })));
+  await context.route('https://old.yummyani.me/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Website fixture</title><p>Website player fixture</p>' }));
+  await open(page); await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await page.locator('#add-form [name=title]').fill('Аниме на Yummyani');
+  await page.locator('#add-form [name=kind]').selectOption('web');
+  await page.locator('#add-form [name=url]').fill('https://old.yummyani.me/catalog/item/example');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.preferences.v1')).watching.audioMode)).toBe('original');
+  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Аниме на Yummyani', exact: true }).click();
+  await expect(page.locator('#playback-status')).toContainText('Выбери плеер сайта');
+  await expect(page.locator('video')).toHaveCount(0);
+  const created = context.waitForEvent('page');
+  await page.locator('#source-player').selectOption('web:web-1');
+  const website = await created; await website.waitForLoadState();
+  expect(website.url()).toBe('https://old.yummyani.me/catalog/item/example');
+  expect(await website.title()).toBe('Website fixture'); await website.close();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].sources)).toEqual([]);
 });

@@ -4,6 +4,9 @@ import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
 import { DEFAULT_CUSTOM, isHexColor, contrast, applyCustom } from './custom-theme.js';
 import { createPosterSearch } from './catalog.js';
+import { viewingControls } from './viewing-controls.js';
+import { castPanel } from './cast-panel.js';
+import { languageCode } from './media-schema.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -26,6 +29,7 @@ const pageSize = () => profileConfig(preferences.profile, preferences.manual).pa
 let visibleCount = pageSize();
 let searchTimer;
 let hlsModule;
+let viewing; let casts;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 decorateIcons();
 function applyPreferences() {
@@ -65,6 +69,8 @@ function applyPreferences() {
   $('#auto-next-setting').checked = preferences.autoNext;
   $('#default-quality').value = String(state.quality);
   $('#quality').value = String(active?.quality ?? state.quality);
+  document.documentElement.style.setProperty('--subtitle-size', `${24 * preferences.watching.subtitleSize / 100}px`);
+  document.documentElement.style.setProperty('--subtitle-bg', preferences.watching.subtitleBackground ? '#000b' : 'transparent');
   for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
   for (const input of document.querySelectorAll('input[name="profile"]')) input.checked = input.value === preferences.profile;
   const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Экономия', manual: 'Вручную' }[preferences.profile];
@@ -119,6 +125,10 @@ for (const input of document.querySelectorAll('[data-settings-group]')) {
     }
     if (group === 'manual') visibleCount = pageSize();
     applyPreferences(); storePreferences();
+    if (group === 'watching') {
+      if (['audioMode', 'originalLanguage', 'engine'].includes(key)) restartSource();
+      else viewing?.subtitles();
+    }
     if (group === 'manual' || group === 'interface') renderLibrary();
   };
   if (input.dataset.live) input.oninput = change; else input.onchange = change;
@@ -364,9 +374,14 @@ $('#add-form').onsubmit = event => {
   try {
     const fields = new FormData(event.currentTarget);
     const url = httpsURL(fields.get('url'));
-    if (!/\.(m3u8|mp4|webm)(?:$|\?)/i.test(url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8. Страницы сайтов пока не подключены.');
-    const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: fields.get('voice'), language: 'ru', quality: Number(fields.get('quality')) }] }] };
-    state.titles.push(validateLibrary([title])[0]); persist(); $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast('Добавлено в библиотеку.');
+    const website = fields.get('kind') === 'web';
+    if (!website && !/\.(m3u8|mp4|webm)(?:$|\?)/i.test(url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8. Для страницы сайта выбери тип «Плеер сайта».');
+    const original = fields.get('audioType') === 'original';
+    const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: original ? 'Оригинал' : fields.get('voice'), language: original ? fields.get('language') : 'ru', audioType: original ? 'original' : 'dub', quality: Number(fields.get('quality')) }] }] };
+    if (website) { title.episodes[0].sources = []; title.episodes[0].webPlayers = [{ id: 'web-1', label: new URL(url).hostname, url }]; }
+    state.titles.push(validateLibrary([title])[0]); persist();
+    if (!website) { preferences.watching.audioMode = original ? 'original' : 'dub'; if (original) preferences.watching.originalLanguage = fields.get('language'); storePreferences(); applyPreferences(); }
+    $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast('Добавлено в библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
 $('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = pageSize(); searchTimer = requestAnimationFrame(renderLibrary); };
@@ -388,6 +403,7 @@ function stopMedia() {
   clearTimeout(stallTimer);
   clearTimeout(loadingTimer);
   cleanup(); cleanup = () => {};
+  viewing?.stop();
   if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
   if (hls) { hls.destroy(); hls = null; }
   document.body.classList.remove('is-playing');
@@ -396,7 +412,7 @@ function stopMedia() {
 function episodeButtons() {
   $('#episode-list').replaceChildren();
   for (const ep of active.title.episodes) {
-    const button = node('button', `Серия ${ep.number}`, `quiet${ep.id === active.episode.id ? ' selected' : ''}`);
+    const button = node('button', `${active.title.episodes.some(item => item.season) ? `С${ep.season || 1} · ` : ''}Серия ${ep.number}`, `quiet${ep.id === active.episode.id ? ' selected' : ''}`);
     button.onclick = () => startEpisode(active.title, ep, 0);
     $('#episode-list').append(button);
   }
@@ -407,16 +423,22 @@ function openTitle(title) {
   const episode = title.episodes.find(ep => ep.id === progress?.episodeId) ?? title.episodes[0];
   startEpisode(title, episode, progress?.time ?? 0);
 }
-function startEpisode(title, episode, time) {
-  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback } };
-  resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, active.recovery);
+function startEpisode(title, episode, time, session = {}) {
+  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback }, watching: { ...preferences.watching }, session: { paused: false, muted: false, volume: preferences.playback.volume / 100, rate: preferences.playback.speed, ...session } };
+  resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, { ...active.recovery, ...active.watching, preferredSourceId: session.preferredSourceId });
   $('#player-section').hidden = false;
-  $('#playing-title').textContent = `${title.title} · Серия ${episode.number}`;
+  $('#playing-title').textContent = `${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
   $('#quality').value = String(state.quality); $('#retry-button').hidden = true; episodeButtons();
   setFocusMode(preferences.interface.cinema);
   reveal($('#player-section'));
   $('#player-section').scrollIntoView({ behavior: motionEnabled() ? 'smooth' : 'instant', block: 'start' });
   startSource();
+  casts?.episodeChanged();
+}
+function restartSource(preferredSourceId = plan?.current?.id) {
+  if (!active) return;
+  const session = video ? { paused: video.paused, muted: video.muted, volume: video.volume, rate: video.playbackRate, preferredSourceId } : { ...active.session, preferredSourceId };
+  startEpisode(active.title, active.episode, video?.currentTime || resumeAt, session);
 }
 function nextEpisode() {
   if (!active) return;
@@ -428,20 +450,26 @@ function nextEpisode() {
 async function startSource() {
   stopMedia();
   const source = plan.current;
-  if (!source) { status(`Нет доступного источника с русской озвучкой в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь резервный источник или повтори позже.' : 'Автосмена источника отключена. Повтори позже или включи её в настройках.'}`); $('#retry-button').hidden = false; return; }
+  viewing?.sources();
+  if (!source) viewing?.subtitles();
+  if (!source) { status(active.episode.webPlayers?.length ? 'Выбери плеер сайта в списке источников. Серии, озвучка и субтитры управляются в окне сайта.' : `Нет доступного источника ${active.watching.audioMode === 'original' ? `с оригинальной озвучкой (${active.watching.originalLanguage})` : 'с русской озвучкой'} в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь резервный источник или повтори позже.' : 'Автосмена источника отключена. Повтори позже или включи её в настройках.'}`); $('#retry-button').hidden = false; return; }
   const token = generation;
   const targetQuality = active.quality;
   const config = active.config;
   const timeoutMs = active.recovery.timeoutSeconds * 1000;
-  const element = node('video'); video = element;
+  let element = node('video'); video = element;
   element.controls = true; element.preload = 'metadata'; element.playsInline = true;
-  element.volume = preferences.playback.volume / 100; element.defaultPlaybackRate = preferences.playback.speed; element.playbackRate = preferences.playback.speed;
+  const configure = () => { element.volume = active.session.volume; element.muted = active.session.muted; element.defaultPlaybackRate = active.session.rate; element.playbackRate = active.session.rate; };
+  configure();
   element.setAttribute('aria-label', 'Видеоплеер'); $('#video-host').append(element);
   const listeners = [];
   const on = (name, fn) => { element.addEventListener(name, fn); listeners.push([name, fn]); };
-  cleanup = () => { for (const [name, fn] of listeners) element.removeEventListener(name, fn); };
+  const request = new AbortController(); let alternate;
+  cleanup = () => { for (const [name, fn] of listeners) element.removeEventListener(name, fn); request.abort(); };
+  viewing?.attach(element);
   let recovering = false;
   let switching = false;
+  let initialized = false;
   status(`${source.voice} · ${source.quality}p · попытка ${plan.attempt}/${plan.maxAttempts}`);
   const fail = () => {
     if (token !== generation || recovering) return;
@@ -449,7 +477,7 @@ async function startSource() {
     resumeAt = Math.max(resumeAt, element.currentTime || 0); recordProgress(true);
     const oldVoice = source.voice;
     const next = plan.fail();
-    if (next && oldVoice !== next.voice) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}, русский язык.`);
+    if (next && oldVoice !== next.voice) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}, язык ${source.language}.`);
     startSource();
   };
   const watchdog = () => {
@@ -459,8 +487,10 @@ async function startSource() {
   loadingTimer = setTimeout(fail, timeoutMs);
   on('waiting', watchdog); on('stalled', watchdog);
   on('playing', () => { clearTimeout(stallTimer); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
-  on('pause', () => { clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); recordProgress(true); });
-  on('play', watchdog);
+  on('pause', () => { active.session.paused = true; clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); if (!element.ended && element.readyState >= 1) status(`${source.voice} · ${source.quality}p · пауза`); recordProgress(true); });
+  on('play', () => { active.session.paused = false; watchdog(); });
+  on('volumechange', () => { if (initialized) { active.session.volume = element.volume; active.session.muted = element.muted; } });
+  on('ratechange', () => { if (initialized) active.session.rate = element.playbackRate; });
   on('timeupdate', () => {
     if (!element.seeking && element.currentTime > resumeAt) resumeAt = element.currentTime;
     if (element.readyState >= 3) clearTimeout(stallTimer);
@@ -471,11 +501,36 @@ async function startSource() {
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
     clearTimeout(loadingTimer);
-    element.defaultPlaybackRate = preferences.playback.speed; element.playbackRate = preferences.playback.speed;
+    configure();
+    if (alternate) { alternate.volume(active.session.volume); alternate.muted(active.session.muted); alternate.playbackRate(active.session.rate); }
+    initialized = true;
+    if (alternate) {
+      const tracks = alternate.audioTracks();
+      if (tracks?.length && [...Array(tracks.length).keys()].some(i => tracks[i].language)) {
+        const language = active.watching.audioMode === 'original' ? active.watching.originalLanguage : 'ru';
+        const match = [...Array(tracks.length).keys()].find(i => languageCode(tracks[i].language) === language);
+        if (match === undefined) { fail(); return; }
+        for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === match;
+      }
+    }
     if (resumeAt > 0) element.currentTime = Number.isFinite(element.duration) ? Math.min(resumeAt, Math.max(0, element.duration - 0.5)) : resumeAt;
-    element.play().catch(() => { if (token === generation) status('Нажми ▶ в плеере, чтобы начать просмотр.'); });
+    if (active.session.paused) status(`${source.voice} · ${source.quality}p · пауза`);
+    else element.play().catch(() => { if (token === generation) status('Нажми ▶ в плеере, чтобы начать просмотр.'); });
   });
-  if (/\.m3u8(?:$|\?)/i.test(source.url)) {
+  if (active.watching.engine === 'videojs') {
+    try {
+      const { alternatePlayer } = await import('./alternate-player.js');
+      if (token !== generation) return;
+      await alternatePlayer(element, source, targetQuality, request.signal, player => {
+        alternate = player; const actual = player.tech(true).el();
+        if (actual !== element) {
+          for (const [name, fn] of listeners) { element.removeEventListener(name, fn); actual.addEventListener(name, fn); }
+          element = actual; video = actual; configure(); viewing?.attach(actual);
+        }
+        player.on('error', fail);
+      });
+    } catch (error) { if (token === generation && error.name !== 'AbortError') fail(); }
+  } else if (/\.m3u8(?:$|\?)/i.test(source.url)) {
     let Hls;
     try { hlsModule ??= import('hls.js'); Hls = (await hlsModule).default; }
     catch { hlsModule = null; if (token === generation) { status('Не удалось загрузить модуль HLS. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
@@ -485,6 +540,13 @@ async function startSource() {
       manifestLoadPolicy: { default: { maxTimeToFirstByteMs: timeoutMs, maxLoadTimeMs: timeoutMs, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });
     const engine = hls;
+    engine.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => { if (token === generation) viewing?.subtitles(); });
+    engine.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+      if (token !== generation || !engine.audioTracks.some(track => track.lang)) return;
+      const language = active.watching.audioMode === 'original' ? active.watching.originalLanguage : 'ru';
+      const match = engine.audioTracks.findIndex(track => languageCode(track.lang) === language);
+      if (match < 0) fail(); else engine.audioTrack = match;
+    });
     engine.on(Hls.Events.MANIFEST_PARSED, () => {
       if (token !== generation) return;
       const matching = engine.levels.findIndex(level => level.height === targetQuality);
@@ -510,7 +572,7 @@ async function fullscreen() {
 }
 $('#fullscreen-button').onclick = fullscreen;
 document.addEventListener('keydown', event => {
-  if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || event.target.closest('input,select,textarea,[contenteditable="true"]') || $('#add-dialog').open) return;
+  if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || event.target.closest('input,select,textarea,[contenteditable="true"]') || document.querySelector('dialog[open]')) return;
   if (event.key === 'Escape') { setFocusMode(false); return; }
   if (!preferences.playback.shortcuts) return;
   if (!video || !active) return;
@@ -529,9 +591,11 @@ document.addEventListener('keydown', event => {
 $('#close-player').onclick = () => { recordProgress(true); stopMedia(); setFocusMode(false); active = null; plan = null; $('#player-section').hidden = true; renderLibrary(); $('#view-title').focus({ preventScroll: true }); };
 $('#next-button').onclick = nextEpisode;
 $('#retry-button').onclick = () => { if (active) startEpisode(active.title, active.episode, resumeAt); };
-$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); if (active) startEpisode(active.title, active.episode, video?.currentTime || resumeAt); applyPreferences(); };
+$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); restartSource(); applyPreferences(); };
 window.addEventListener('beforeunload', () => recordProgress(true));
 window.addEventListener('offline', () => toast('Нет соединения. При недоступности всех источников просмотр приостановится.'));
 window.addEventListener('online', () => { toast('Соединение восстановлено.'); if (active && !plan?.current) startEpisode(active.title, active.episode, resumeAt); });
+viewing = viewingControls({ $, node, preferences, persist, savePreferences: storePreferences, toast, active: () => active, video: () => video, hls: () => hls, currentSource: () => plan?.current, restart: restartSource });
+casts = castPanel({ $, node, active: () => active, persist, toast });
 renderLibrary();
 if (loaded.error) toast(loaded.error);

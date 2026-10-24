@@ -1,0 +1,22 @@
+[
+  {
+    "id": "original-example",
+    "title": "Пример оригинала — замени видеоссылки и переводы",
+    "seasons": [{ "number": 1, "title": "Первый сезон" }],
+    "episodes": [
+      {
+        "id": "s1-e1", "season": 1, "number": 1,
+        "sources": [
+          { "id": "jp-main", "label": "Основной сервер", "url": "https://media.example.invalid/1.m3u8", "voice": "Оригинал", "language": "ja", "audioType": "original", "quality": 1080 },
+          { "id": "jp-backup", "label": "Запасной сервер", "url": "https://backup.example.invalid/1.mp4", "voice": "Оригинал", "language": "ja", "audioType": "original", "quality": 1080 },
+          { "id": "ru-dub", "url": "https://dub.example.invalid/1.mp4", "voice": "AniDUB", "language": "ru", "audioType": "dub", "quality": 1080 }
+        ],
+        "subtitles": [
+          { "id": "studio-a", "label": "Перевод студии А", "language": "ru", "format": "vtt", "url": "https://subs.example.invalid/studio-a/1.vtt" },
+          { "id": "studio-b", "label": "Перевод студии Б", "language": "ru", "format": "ass", "url": "https://subs.example.invalid/studio-b/1.ass", "sourceId": "jp-main" },
+          { "id": "local-example", "label": "Пример своего перевода", "language": "ru", "format": "srt", "content": "1\n00:00:01,000 --> 00:00:04,000\nУ этого переводчика другие слова." }
+        ]
+      }
+    ]
+  }
+]

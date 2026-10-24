@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 const profile = await mkdtemp(path.join(tmpdir(), 'kadr-desktop-'));
 const root = path.resolve(import.meta.dirname, '..');
-const args = [root, `--user-data-dir=${profile}`, '--disable-gpu'];
+const applicationRoot = process.env.YORU_SMOKE_APP_PATH ? path.resolve(process.env.YORU_SMOKE_APP_PATH) : root;
+const args = [applicationRoot, `--user-data-dir=${profile}`, '--disable-gpu'];
 if (process.env.KADR_ELECTRON_NO_SANDBOX === '1') args.push('--no-sandbox');
 let application;
 try {
@@ -75,11 +76,55 @@ try {
   await page.waitForFunction(() => document.querySelector('.artwork img')?.naturalWidth > 0);
   assert.equal(await page.locator('.artwork img').getAttribute('src'), poster.posterUrl);
   const media = await readFile(path.join(root, 'test/fixtures/tone.webm'));
-  await page.route('https://media.example.invalid/desktop.webm', route => route.fulfill({ contentType: 'video/webm', headers: { 'access-control-allow-origin': '*' }, body: media }));
+  await page.route('https://media.example.invalid/desktop.webm', route => {
+    const match = route.request().headers().range?.match(/^bytes=(\d+)-(\d*)$/);
+    const start = match ? Number(match[1]) : 0; const end = match?.[2] ? Math.min(Number(match[2]), media.length - 1) : media.length - 1;
+    const headers = { 'access-control-allow-origin': '*', 'accept-ranges': 'bytes' };
+    if (match) headers['content-range'] = `bytes ${start}-${end}/${media.length}`;
+    return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: media.subarray(start, end + 1) });
+  });
   await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
   await page.waitForFunction(() => { const video = document.querySelector('video'); return video?.currentTime > 0 && video.videoHeight === 90; }, undefined, { timeout: 15000 });
   assert.equal(await page.locator('video').evaluate(v => v.volume), 0.55);
   assert.equal(await page.locator('video').evaluate(v => v.playbackRate), 1.25);
+  await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 0.5; v.volume = 0.41; v.muted = true; });
+  await page.waitForFunction(() => { const video = document.querySelector('video'); return !video.seeking && Math.abs(video.currentTime - 0.5) < 0.05; });
+  await page.locator('#player-engine').selectOption('videojs');
+  await page.waitForFunction(() => document.querySelector('#playback-status').textContent.includes('пауза') && document.querySelector('#video-host .video-js'));
+  assert.deepEqual(await page.locator('video').evaluate(v => ({ muted: v.muted, volume: v.volume, paused: v.paused, time: Math.round(v.currentTime * 10) / 10 })), { muted: true, volume: 0.41, paused: true, time: 0.5 });
+  await page.locator('#player-engine').selectOption('standard');
+  await page.waitForFunction(() => document.querySelector('#playback-status').textContent.includes('пауза') && !document.querySelector('#video-host .video-js'));
+  await page.locator('#edit-media').click();
+  await page.locator('#subtitle-file').setInputFiles({ name: 'Тест ASS.ass', mimeType: 'text/plain', buffer: await readFile(path.join(root, 'test/fixtures/translator.ass')) });
+  await page.getByRole('button', { name: 'Добавить перевод', exact: true }).click(); await page.locator('#close-media-dialog').click();
+  await page.waitForFunction(() => document.querySelector('#subtitle-status').textContent.includes('оформление автора'), undefined, { timeout: 15000 });
+  await page.locator('video').evaluate(v => { v.currentTime = 1; });
+  await page.waitForFunction(() => { const canvas = document.querySelector('#video-host canvas'); return canvas && [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].some((n, i) => i % 4 === 3 && n > 0); }, undefined, { timeout: 10000 });
+  await page.locator('#cast-panel > summary').click(); await page.locator('#anidb-id').fill('123'); await page.locator('#bind-anidb').click();
+  await application.evaluate(({ net }) => {
+    globalThis.__anidbTestRequests = [];
+    net.fetch = async (url, options) => {
+      if (!url.startsWith('http://api.anidb.net:9001/httpapi?')) throw new Error('Unexpected fixture destination');
+      globalThis.__anidbTestRequests.push(url);
+      return new Response('<anime id="123"><titles><title type="main">AniDB fixture</title></titles><characters><character id="1" type="main character in"><name>Test character</name><seiyuu id="2">Test actor</seiyuu></character></characters><episodes><episode id="1001"><epno>1</epno><title>Test episode</title></episode></episodes></anime>', { headers: { 'content-type': 'text/xml' } });
+    };
+  });
+  await page.locator('.anidb-config > summary').click(); await page.locator('#anidb-client').fill('yorutestfixture'); await page.locator('#anidb-client').blur();
+  await page.locator('#anidb-fetch').click(); await page.getByRole('heading', { name: 'Test character', exact: true }).waitFor();
+  await page.locator('#anidb-fetch').click();
+  await page.waitForFunction(() => !document.querySelector('#anidb-fetch').disabled);
+  const apiRequests = await application.evaluate(() => globalThis.__anidbTestRequests);
+  assert.equal(apiRequests.length, 1, 'AniDB cache must avoid a duplicate request');
+  const apiURL = new URL(apiRequests[0]); assert.equal(apiURL.searchParams.get('aid'), '123'); assert.equal(apiURL.searchParams.get('client'), 'yorutestfixture');
+  assert.equal(await page.evaluate(async () => { try { await window.kadr.openWebPlayer('https://evil.test'); return false; } catch { return true; } }), true);
+  await application.context().route('https://old.yummyani.me/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Website isolation fixture</title>' }));
+  const websiteCreated = application.waitForEvent('window'); await page.evaluate(() => window.kadr.openWebPlayer('https://old.yummyani.me/catalog/item/example'));
+  const website = await websiteCreated; await website.waitForLoadState('domcontentloaded');
+  assert.equal(await website.evaluate(() => typeof window.kadr), 'undefined'); assert.equal(await website.evaluate(() => typeof window.require), 'undefined');
+  await application.context().route('https://anidb.net/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>AniDB isolation fixture</title>' }));
+  const anidbCreated = application.waitForEvent('window'); await page.evaluate(() => window.kadr.openAniDB({ id: 123 }));
+  const aniDB = await anidbCreated; await aniDB.waitForLoadState('domcontentloaded');
+  assert.equal(await aniDB.evaluate(() => typeof window.kadr), 'undefined'); assert.equal(await aniDB.evaluate(() => typeof window.require), 'undefined');
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   const rejection = await page.evaluate(async () => { try { await window.kadr.openSource('not-allowed'); return false; } catch { return true; } });
   assert.equal(rejection, true, 'IPC must reject arbitrary destinations');
@@ -92,7 +137,7 @@ try {
   assert.equal(await sourcePage.evaluate(() => typeof window.require), 'undefined');
   assert.deepEqual(errors, []);
   const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-  console.log(`PASS: Electron ${version}; file renderer, catalog poster selection/persistence/CSP, themes/settings persistence, preload, isolation, IPC, add/reload persistence, real WebM playback, isolated source window`);
+  console.log(`PASS: Electron ${version}; file renderer, posters, settings, real WebM, Video.js switching/state, real ASS WASM canvas, AniDB IPC/cache/XML and isolated website/AniDB/source windows`);
   // Closing the main window must also close sources and exit cleanly.
   const exited = application.waitForEvent('close');
   await page.close();
