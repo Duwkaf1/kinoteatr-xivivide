@@ -9,6 +9,7 @@ import { boundedText } from '../src/subtitles.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 app.setName('Yoru');
+app.commandLine.appendSwitch('lang', 'ru');
 const profile = app.commandLine.getSwitchValue('user-data-dir');
 // Keep the existing profile after rebranding so saved library/settings remain available.
 const userData = profile ? path.resolve(profile) : path.join(app.getPath('appData'), 'kadr-anime');

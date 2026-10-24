@@ -1,14 +1,21 @@
 import { rankSources, validateLibrary } from './core.js';
 import { webPlayerURL } from './media-schema.js';
 import { SubtitleController } from './subtitles.js';
+import { languageName, subtitleKind } from './media-labels.js';
 
 export function viewingControls({ $, node, preferences, persist, savePreferences, toast, active, video, hls, currentSource, restart }) {
   let controller; let detach = () => {}; let currentTrack;
   const option = (value, text) => { const element = node('option', text); element.value = value; return element; };
+  $('#open-player-settings').onclick = () => $('#player-settings-dialog').showModal();
+  $('#close-player-settings').onclick = () => $('#player-settings-dialog').close();
+  function report(text) {
+    $('#subtitle-status').textContent = text;
+    $('#subtitle-status').classList.toggle('is-error', /не загружен|не удалось|не загрузил/i.test(text));
+  }
   function sources() {
     const value = active(); if (!value) return;
     const choices = rankSources(value.episode.sources, value.quality, { ...value.recovery, ...value.watching });
-    $('#source-player').replaceChildren(...choices.map(source => option(source.id, `${source.label || source.voice} · ${source.language.toUpperCase()} · ${source.quality}p`)));
+    $('#source-player').replaceChildren(...choices.map((source, index) => option(source.id, `${source.label || (source.audioType === 'original' ? `Источник ${index + 1}` : source.voice)}${!['ru', 'ja'].includes(source.language) ? ` · ${languageName(source.language)}` : ''}`)));
     if (!choices.length) $('#source-player').append(option('', value.episode.webPlayers?.length ? 'Выбери плеер сайта…' : 'Нет подходящих источников'));
     for (const page of value.episode.webPlayers || []) $('#source-player').append(option(`web:${page.id}`, `${page.label} · окно сайта`));
     $('#source-player').value = currentSource()?.id || choices[0]?.id || '';
@@ -33,24 +40,25 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
     for (const track of video()?.textTracks || []) if (track !== controller.native) track.mode = 'disabled';
     if (selected?.id.startsWith('hls:')) {
       controller.clear(); hls().subtitleTrack = Number(selected.id.slice(4)); hls().subtitleDisplay = true;
-      $('#subtitle-status').textContent = `${selected.label} · встроенная дорожка`;
+      report(`${selected.label} · встроенный перевод`);
     } else if (selected?.native) {
-      controller.clear(); selected.native.mode = 'showing'; $('#subtitle-status').textContent = `${selected.label} · встроенная дорожка`;
+      controller.clear(); selected.native.mode = 'showing'; report(`${selected.label} · встроенный перевод`);
     } else controller.select(selected, preferences.watching, preferences.profile === 'economy');
   }
   function subtitles() {
     const choices = tracks(); const preferred = preferences.watching.subtitleVariant;
     const chosen = preferred === 'off' ? null : choices.find(track => track.label === preferred) || (active()?.watching.audioMode === 'original' ? choices.find(track => track.language === preferences.watching.subtitleLanguage) : null);
-    $('#subtitle-selector').replaceChildren(option('off', 'Выключены'), ...choices.map(track => option(track.id, `${track.label} · ${track.language.toUpperCase()} · ${track.format.toUpperCase()}`)));
+    $('#subtitle-selector').replaceChildren(option('off', 'Без субтитров'), ...choices.map(track => option(track.id, `${track.label}${track.language !== 'ru' ? ` · ${languageName(track.language)}` : ''}${choices.filter(item => item.label === track.label).length > 1 ? ` · ${subtitleKind(track.format)}` : ''}`)));
     $('#subtitle-selector').value = chosen?.id || 'off'; selectTrack();
-    if (!controller && active()?.episode.webPlayers?.length) $('#subtitle-status').textContent = 'Перевод и субтитры сайта выбираются в его отдельном окне.';
-    else if (!choices.length && active()?.watching.audioMode === 'original') $('#subtitle-status').textContent = 'Для этого источника нет подходящих дорожек. Добавь другой перевод или выбери другой формат.';
-    else if (!controller) $('#subtitle-status').textContent = 'Субтитры выключены.';
+    if (!controller && active()?.episode.webPlayers?.length) report('Перевод сайта выбирается в его отдельном окне.');
+    else if (!choices.length && active()?.watching.audioMode === 'original') report('Нет подходящего перевода. Добавь его в параметрах просмотра.');
+    else if (!controller) report('Субтитры выключены.');
   }
   $('#source-player').onchange = async () => {
     const value = $('#source-player').value;
     if (!value.startsWith('web:')) { if (value) restart(value); return; }
     const page = active()?.episode.webPlayers?.find(item => `web:${item.id}` === value); if (!page) return;
+    $('#player-settings-dialog').close();
     video()?.pause();
     try {
       if (window.kadr?.openWebPlayer) await window.kadr.openWebPlayer(page.url);
@@ -63,7 +71,7 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
     savePreferences(); selectTrack();
   };
   function attach(element) {
-    controller?.dispose(); detach(); controller = new SubtitleController(element, text => { $('#subtitle-status').textContent = text; });
+    controller?.dispose(); detach(); controller = new SubtitleController(element, report);
     const update = () => subtitles(); element.textTracks.addEventListener('addtrack', update);
     detach = () => element.textTracks.removeEventListener('addtrack', update);
     sources(); subtitles();
@@ -77,14 +85,14 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
     const value = active(); if (!value) return;
     $('#media-episode-title').textContent = `${value.title.title} · сезон ${value.episode.season || 1} · серия ${value.episode.number}`;
     $('#existing-media').replaceChildren();
-    for (const source of value.episode.sources) $('#existing-media').append(node('p', `${source.label || source.voice} · ${source.audioType === 'original' ? 'оригинал' : source.voice} · ${source.language} · ${source.quality}p`));
+    for (const source of value.episode.sources) $('#existing-media').append(node('p', `${source.label || source.voice} · ${source.quality}p${!['ru', 'ja'].includes(source.language) ? ` · ${languageName(source.language)}` : ''}`));
     for (const page of value.episode.webPlayers || []) $('#existing-media').append(node('p', `${page.label} · ${new URL(page.url).hostname} · плеер сайта`));
     $('#subtitle-source').replaceChildren(option('', 'Все источники серии'), ...value.episode.sources.map(source => option(source.id, source.label || source.voice)));
     $('#subtitle-source').value = currentSource()?.id || '';
     $('#existing-subtitles').replaceChildren();
-    for (const track of value.episode.subtitles || []) $('#existing-subtitles').append(node('p', `${track.label} · ${track.language.toUpperCase()} · ${track.format.toUpperCase()}${track.sourceId ? ' · для отдельного источника' : ''}`));
+    for (const track of value.episode.subtitles || []) $('#existing-subtitles').append(node('p', `${track.label} · ${subtitleKind(track.format)}${track.language !== 'ru' ? ` · ${languageName(track.language)}` : ''}${track.sourceId ? ' · для отдельного источника' : ''}`));
   }
-  $('#edit-media').onclick = () => { renderEntries(); $('#source-form-error').textContent = ''; $('#subtitle-form-error').textContent = ''; $('#media-dialog').showModal(); };
+  $('#edit-media').onclick = () => { $('#player-settings-dialog').close(); renderEntries(); $('#source-form-error').textContent = ''; $('#subtitle-form-error').textContent = ''; $('#media-dialog').showModal(); };
   $('#close-media-dialog').onclick = () => $('#media-dialog').close();
   for (const selector of ['#add-source-form', '#add-form']) {
     const form = $(selector); const kind = form.querySelector('[name="kind"]');
@@ -99,7 +107,7 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
         updateEpisode({ webPlayers: [...(active().episode.webPlayers || []), { id: crypto.randomUUID(), label: data.get('label'), url: webPlayerURL(data.get('url')) }] });
         renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast('Плеер сайта добавлен в список источников.'); return;
       }
-      const source = { id: crypto.randomUUID(), label: data.get('label'), url: data.get('url'), voice: original ? 'Оригинал' : data.get('voice'), audioType: original ? 'original' : 'dub', language: original ? data.get('language') : 'ru', quality: Number(data.get('quality')) };
+      const source = { id: crypto.randomUUID(), label: data.get('label'), url: data.get('url'), voice: original ? 'Оригинал' : data.get('voice'), audioType: original ? 'original' : 'dub', language: original ? 'ja' : 'ru', quality: Number(data.get('quality')) };
       if (!/\.(mp4|webm|m3u8)(?:$|\?)/i.test(source.url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8.');
       updateEpisode({ sources: [...active().episode.sources, source] }); renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast('Источник добавлен. Его можно выбрать в списке плееров.');
     } catch (error) { $('#source-form-error').textContent = error.message; }

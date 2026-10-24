@@ -7,6 +7,7 @@ import { createPosterSearch } from './catalog.js';
 import { viewingControls } from './viewing-controls.js';
 import { castPanel } from './cast-panel.js';
 import { languageCode } from './media-schema.js';
+import { episodeOriginalLanguage } from './watching.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -126,7 +127,7 @@ for (const input of document.querySelectorAll('[data-settings-group]')) {
     if (group === 'manual') visibleCount = pageSize();
     applyPreferences(); storePreferences();
     if (group === 'watching') {
-      if (['audioMode', 'originalLanguage', 'engine'].includes(key)) restartSource();
+      if (['audioMode', 'engine'].includes(key)) restartSource();
       else viewing?.subtitles();
     }
     if (group === 'manual' || group === 'interface') renderLibrary();
@@ -377,10 +378,10 @@ $('#add-form').onsubmit = event => {
     const website = fields.get('kind') === 'web';
     if (!website && !/\.(m3u8|mp4|webm)(?:$|\?)/i.test(url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8. Для страницы сайта выбери тип «Плеер сайта».');
     const original = fields.get('audioType') === 'original';
-    const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: original ? 'Оригинал' : fields.get('voice'), language: original ? fields.get('language') : 'ru', audioType: original ? 'original' : 'dub', quality: Number(fields.get('quality')) }] }] };
+    const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: original ? 'Оригинал' : fields.get('voice'), language: original ? 'ja' : 'ru', audioType: original ? 'original' : 'dub', quality: Number(fields.get('quality')) }] }] };
     if (website) { title.episodes[0].sources = []; title.episodes[0].webPlayers = [{ id: 'web-1', label: new URL(url).hostname, url }]; }
     state.titles.push(validateLibrary([title])[0]); persist();
-    if (!website) { preferences.watching.audioMode = original ? 'original' : 'dub'; if (original) preferences.watching.originalLanguage = fields.get('language'); storePreferences(); applyPreferences(); }
+    if (!website) { preferences.watching.audioMode = original ? 'original' : 'dub'; if (original) preferences.watching.originalLanguage = 'ja'; storePreferences(); applyPreferences(); }
     $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast('Добавлено в библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
@@ -425,6 +426,7 @@ function openTitle(title) {
 }
 function startEpisode(title, episode, time, session = {}) {
   recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback }, watching: { ...preferences.watching }, session: { paused: false, muted: false, volume: preferences.playback.volume / 100, rate: preferences.playback.speed, ...session } };
+  active.watching.originalLanguage = episodeOriginalLanguage(episode, active.quality, session.preferredSourceId);
   resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, { ...active.recovery, ...active.watching, preferredSourceId: session.preferredSourceId });
   $('#player-section').hidden = false;
   $('#playing-title').textContent = `${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
@@ -452,7 +454,7 @@ async function startSource() {
   const source = plan.current;
   viewing?.sources();
   if (!source) viewing?.subtitles();
-  if (!source) { status(active.episode.webPlayers?.length ? 'Выбери плеер сайта в списке источников. Серии, озвучка и субтитры управляются в окне сайта.' : `Нет доступного источника ${active.watching.audioMode === 'original' ? `с оригинальной озвучкой (${active.watching.originalLanguage})` : 'с русской озвучкой'} в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь резервный источник или повтори позже.' : 'Автосмена источника отключена. Повтори позже или включи её в настройках.'}`); $('#retry-button').hidden = false; return; }
+  if (!source) { status(active.episode.webPlayers?.length ? 'Открой параметры и выбери плеер сайта. Серии и перевод выбираются в его окне.' : `Нет источника ${active.watching.audioMode === 'original' ? 'с оригинальной озвучкой' : 'с русской озвучкой'} в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь источник или повтори позже.' : 'Автосмена источника отключена.'}`); $('#retry-button').hidden = false; return; }
   const token = generation;
   const targetQuality = active.quality;
   const config = active.config;
@@ -477,7 +479,7 @@ async function startSource() {
     resumeAt = Math.max(resumeAt, element.currentTime || 0); recordProgress(true);
     const oldVoice = source.voice;
     const next = plan.fail();
-    if (next && oldVoice !== next.voice) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}, язык ${source.language}.`);
+    if (next && oldVoice !== next.voice) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}.`);
     startSource();
   };
   const watchdog = () => {
@@ -533,9 +535,9 @@ async function startSource() {
   } else if (/\.m3u8(?:$|\?)/i.test(source.url)) {
     let Hls;
     try { hlsModule ??= import('hls.js'); Hls = (await hlsModule).default; }
-    catch { hlsModule = null; if (token === generation) { status('Не удалось загрузить модуль HLS. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
+    catch { hlsModule = null; if (token === generation) { status('Не удалось подготовить потоковое видео. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
     if (token !== generation) return;
-    if (!Hls.isSupported()) { status('В этой среде HLS не поддерживается. Попробуй приложение Windows или MP4.'); $('#retry-button').hidden = false; return; }
+    if (!Hls.isSupported()) { status('Потоковое видео не поддерживается. Выбери альтернативный плеер или обычный видеофайл.'); $('#retry-button').hidden = false; return; }
     hls = new Hls({ autoStartLoad: false, maxBufferLength: config.maxBufferLength, maxMaxBufferLength: config.maxMaxBufferLength, backBufferLength: config.backBufferLength, maxBufferSize: config.maxBufferSize, enableWorker: true,
       manifestLoadPolicy: { default: { maxTimeToFirstByteMs: timeoutMs, maxLoadTimeMs: timeoutMs, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });

@@ -33,7 +33,8 @@ export function fixedQualityManifest(text, base, quality, language) {
   }).join('\n');
 }
 export async function alternatePlayer(element, source, quality, signal, onPlayer) {
-  const [{ default: videojs }] = await Promise.all([import('video.js'), import('video.js/dist/video-js.css')]);
+  const [{ default: videojs }, , { default: russian }] = await Promise.all([import('video.js'), import('video.js/dist/video-js.css'), import('video.js/dist/lang/ru.json')]);
+  videojs.addLanguage('ru', russian);
   signal.throwIfAborted();
   let url = source.url; let objectURL;
   if (/\.m3u8(?:$|\?)/i.test(url)) {
@@ -42,7 +43,7 @@ export async function alternatePlayer(element, source, quality, signal, onPlayer
     if (master) { objectURL = URL.createObjectURL(new Blob([master], { type: 'application/vnd.apple.mpegurl' })); url = objectURL; }
   }
   signal.throwIfAborted(); element.classList.add('video-js', 'vjs-big-play-centered');
-  const player = videojs(element, { controls: true, autoplay: false, preload: 'metadata', fluid: false, fill: true, html5: { nativeTextTracks: true, vhs: { overrideNative: true, enableLowInitialPlaylist: false } } });
+  const player = videojs(element, { language: 'ru', controls: true, autoplay: false, preload: 'metadata', fluid: false, fill: true, html5: { nativeTextTracks: true, vhs: { overrideNative: true, enableLowInitialPlaylist: false } } });
   const release = () => { if (!player.isDisposed()) player.dispose(); if (objectURL) URL.revokeObjectURL(objectURL); };
   signal.addEventListener('abort', release, { once: true });
   onPlayer(player);

@@ -1,0 +1,2 @@
+export const subtitleKind = format => ({ vtt: 'для онлайн-видео', srt: 'текстовые', ass: 'с оформлением', ssa: 'с оформлением' })[format] || 'субтитры';
+export const languageName = code => ({ ru: 'Русский', rus: 'Русский', ja: 'Японский', jpn: 'Японский', en: 'Английский', eng: 'Английский', zh: 'Китайский', zho: 'Китайский', ko: 'Корейский', kor: 'Корейский' })[String(code || '').toLowerCase().split('-')[0]] || 'Другой язык';

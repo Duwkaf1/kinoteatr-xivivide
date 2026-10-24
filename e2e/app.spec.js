@@ -39,6 +39,8 @@ function fulfillVideo(route) {
   return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: fixture.subarray(start, end + 1) });
 }
 async function open(page) { await page.goto('http://127.0.0.1:5173'); }
+async function playerSettings(page) { if (!await page.locator('#player-settings-dialog').isVisible()) await page.locator('#open-player-settings').click(); }
+async function closePlayerSettings(page) { if (await page.locator('#player-settings-dialog').isVisible()) await page.locator('#close-player-settings').click(); }
 
 test('choose a real catalog poster explicitly, persist it, edit and remove it', async ({ page }) => {
   const item = posterCatalog[0]; let searches = 0;
@@ -498,7 +500,7 @@ test('original audio, studio variants and source/engine changes preserve pause, 
   await expect.poll(() => page.locator('video').evaluate(v => [...v.textTracks].flatMap(t => [...(t.cues || [])]).map(c => c.text).join(''))).toContain('другие слова');
   expect(await page.locator('video').evaluate((v, old) => v === old, before)).toBe(true);
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 2; v.volume = 0.37; v.muted = true; v.playbackRate = 1.25; });
-  await page.locator('#source-player').selectOption('jp-b');
+  await playerSettings(page); await page.locator('#source-player').selectOption('jp-b');
   await expect(page.locator('#playback-status')).toContainText('пауза');
   expect(await page.locator('video').evaluate(v => ({ paused: v.paused, muted: v.muted, volume: v.volume, rate: v.playbackRate, time: Math.round(v.currentTime) }))).toEqual({ paused: true, muted: true, volume: 0.37, rate: 1.25, time: 2 });
   await page.locator('#player-engine').selectOption('videojs');
@@ -516,6 +518,7 @@ test('original audio, studio variants and source/engine changes preserve pause, 
   await page.locator('#subtitle-size').fill('120'); await page.locator('#subtitle-size').blur();
   await page.locator('#subtitle-background').uncheck();
   expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--subtitle-size'))).toBe('28.8px');
+  await closePlayerSettings(page);
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await expect(page.locator('video')).toHaveCount(0);
   await page.reload();
@@ -528,15 +531,15 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await open(page); await serveVideo(page);
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
-  await page.locator('#add-form [name=title]').fill('Оригинал с ASS');
+  await page.locator('#add-form [name=title]').fill('Вечерний просмотр');
   await page.locator('#add-form [name=url]').fill('https://media.example.test/first.webm');
   await page.locator('#add-form [name=audioType]').selectOption('original');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
-  await page.getByRole('button', { name: 'Смотреть: Оригинал с ASS', exact: true }).click();
+  await page.getByRole('button', { name: 'Смотреть: Вечерний просмотр', exact: true }).click();
   await expect(page.locator('#playback-status')).toContainText('воспроизведение');
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 1; });
-  await page.locator('#edit-media').click();
-  const content = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Liberation Sans,32,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,20,20,20,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,ASS перевод студии В';
+  await playerSettings(page); await page.locator('#edit-media').click();
+  const content = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Liberation Sans,22,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,20,20,20,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,У каждого переводчика — свои слова.';
   await page.locator('#subtitle-file').setInputFiles({ name: 'Студия В.ass', mimeType: 'text/plain', buffer: Buffer.from(content) });
   await page.getByRole('button', { name: 'Добавить перевод', exact: true }).click();
   await page.locator('#close-media-dialog').click();
@@ -548,12 +551,18 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   expect(await page.evaluate(() => { const canvas = document.querySelector('#video-host canvas').getBoundingClientRect(); const video = document.querySelector('video').getBoundingClientRect(); return Math.abs(canvas.left - video.left) < 2 && canvas.right <= video.right + 2 && canvas.top >= video.top - 2 && canvas.bottom <= video.bottom + 2; })).toBe(true);
   await expect.poll(() => page.locator('#video-host canvas').evaluate(canvas => [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].some((n, i) => i % 4 === 0 && n > 180))).toBe(true);
   await page.locator('#video-host').screenshot({ path: 'test-results/ass-video.png' });
+  expect(await page.evaluate(() => { const section = document.querySelector('#player-section').getBoundingClientRect(); const video = document.querySelector('#video-host').getBoundingClientRect(); return section.height - video.height; })).toBeLessThan(200);
+  await expect(page.locator('#watch-original-language')).toHaveCount(0);
+  await expect(page.locator('#subtitle-selector')).not.toContainText(/ASS|SSA|VTT|SRT| · RU/);
   await page.locator('#player-section').screenshot({ path: 'test-results/original-ass-player.png' });
+  await playerSettings(page);
+  await page.locator('#player-settings-dialog').screenshot({ path: 'test-results/player-settings.png' });
+  await closePlayerSettings(page);
   expect(errors).toEqual([]);
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await expect(page.locator('#video-host canvas')).toHaveCount(0);
   await page.reload();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('ASS перевод студии В');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('У каждого переводчика — свои слова.');
 });
 
 test('Video.js VHS plays an actual fixed-quality HLS master and rejects missing quality', async ({ page }) => {
@@ -616,10 +625,10 @@ test('website player pages can be added without pretending they are direct strea
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.preferences.v1')).watching.audioMode)).toBe('original');
   await page.reload(); await page.getByRole('button', { name: 'Смотреть: Аниме на Yummyani', exact: true }).click();
-  await expect(page.locator('#playback-status')).toContainText('Выбери плеер сайта');
+  await expect(page.locator('#playback-status')).toContainText('Открой параметры');
   await expect(page.locator('video')).toHaveCount(0);
   const created = context.waitForEvent('page');
-  await page.locator('#source-player').selectOption('web:web-1');
+  await playerSettings(page); await page.locator('#source-player').selectOption('web:web-1');
   const website = await created; await website.waitForLoadState();
   expect(website.url()).toBe('https://old.yummyani.me/catalog/item/example');
   expect(await website.title()).toBe('Website fixture'); await website.close();

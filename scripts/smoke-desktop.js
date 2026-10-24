@@ -89,6 +89,7 @@ try {
   assert.equal(await page.locator('video').evaluate(v => v.playbackRate), 1.25);
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 0.5; v.volume = 0.41; v.muted = true; });
   await page.waitForFunction(() => { const video = document.querySelector('video'); return !video.seeking && Math.abs(video.currentTime - 0.5) < 0.05; });
+  await page.locator('#open-player-settings').click();
   await page.locator('#player-engine').selectOption('videojs');
   await page.waitForFunction(() => document.querySelector('#playback-status').textContent.includes('пауза') && document.querySelector('#video-host .video-js'));
   assert.deepEqual(await page.locator('video').evaluate(v => ({ muted: v.muted, volume: v.volume, paused: v.paused, time: Math.round(v.currentTime * 10) / 10 })), { muted: true, volume: 0.41, paused: true, time: 0.5 });

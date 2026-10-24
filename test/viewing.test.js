@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { rankSources, PlaybackPlan, validateLibrary } from '../src/core.js';
 import { parseTextSubtitles } from '../src/subtitles.js';
 import { fixedQualityManifest } from '../src/alternate-player.js';
-import { defaultWatching, validateWatching } from '../src/watching.js';
+import { defaultWatching, validateWatching, episodeOriginalLanguage } from '../src/watching.js';
 import { castForEpisode, anidbPage } from '../src/anidb.js';
 import { webPlayerURL } from '../src/media-schema.js';
 const source = (id, language, audioType, quality = 1080) => ({ id, voice: 'Перевод', url: `https://media.test/${id}.mp4`, language, audioType, quality });
@@ -13,6 +13,13 @@ test('original mode preserves explicit language and quality across every retry; 
   const options = { audioMode: 'original', originalLanguage: 'ja', preferredSourceId: 'ja-b', attempts: 1 };
   const plan = new PlaybackPlan(sources, 1080, options);
   assert.equal(plan.current.id, 'ja-b'); assert.equal(plan.fail().id, 'ja-a'); assert.equal(plan.fail(), null);
+});
+test('original language is chosen from actual sources, preferring Japanese without a visible language setting', () => {
+  const episode = { sources: [source('dub', 'ru', 'dub'), source('chinese', 'zh', 'original'), source('japanese', 'ja', 'original'), source('low', 'en', 'original', 720)] };
+  assert.equal(episodeOriginalLanguage(episode, 1080), 'ja');
+  assert.equal(episodeOriginalLanguage(episode, 1080, 'chinese'), 'zh');
+  assert.equal(episodeOriginalLanguage({ sources: [episode.sources[1]] }, 1080), 'zh');
+  assert.equal(episodeOriginalLanguage({ sources: [episode.sources[0]] }, 1080), 'ja');
 });
 test('series retain studio variants, file contents, source bindings and season/AniDB identity', () => {
   const data = { id: 'a', title: 'Аниме', seasons: [{ number: 1, anidbId: 123 }, { number: 2, anidbId: 456 }], episodes: [{ id: '1', number: 1, season: 2, sources: [source('ja', 'ja', 'original')], subtitles: [{ id: 'studio-a', label: 'Студия А', language: 'ru', format: 'srt', sourceId: 'ja', content: '1\n00:00:00,000 --> 00:00:01,000\nТекст' }, { id: 'studio-b', label: 'Студия Б', language: 'ru', format: 'ass', url: 'https://subs.test/1.ass' }] }] };
