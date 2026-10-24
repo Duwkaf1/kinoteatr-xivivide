@@ -54,13 +54,10 @@ function applyPreferences() {
   $('#text-size-value').textContent = `${preferences.interface.textSize}%`;
   $('#seek-hint').textContent = `${preferences.playback.seekSeconds} сек`;
   $('.shortcut-hint').hidden = !preferences.playback.shortcuts;
-  $('.sidebar-note p').textContent = `${preferences.playback.voicePriority === 'anilibria' ? 'AniLibria → AniDUB' : 'AniDUB → AniLibria'}${preferences.playback.allowOtherRussian ? ' → другая русская' : ''}`;
   const reduce = shouldReduceMotion(preferences, reducedMotion.matches);
   document.body.classList.toggle('less-motion', reduce);
   document.body.classList.toggle('economy-mode', preferences.profile === 'economy');
   if (reduce) for (const animation of document.getAnimations()) animation.cancel();
-  $('#motion-toggle').setAttribute('aria-pressed', String(!preferences.animations || preferences.profile === 'economy'));
-  $('#motion-toggle').disabled = preferences.profile === 'economy';
   $('#animations-setting').checked = preferences.animations;
   $('#animations-setting').disabled = preferences.profile === 'economy';
   $('#animations-hint').textContent = preferences.profile === 'economy' ? 'В режиме «Экономия» эффекты отключены.' : reducedMotion.matches ? 'Эффекты отключены системной настройкой уменьшения движения.' : 'Учитывается системная настройка уменьшения движения.';
@@ -76,9 +73,6 @@ function storePreferences() {
   try { savePreferences(preferences); $('#settings-save-status').textContent = 'Настройки сохранены'; }
   catch { $('#settings-save-status').textContent = 'Не удалось сохранить настройки. Проверь свободное место.'; toast('Настройки применены только до закрытия приложения: сохранение недоступно.'); }
 }
-$('#motion-toggle').onclick = () => {
-  preferences.animations = !preferences.animations; applyPreferences(); storePreferences();
-};
 const motionEnabled = () => !shouldReduceMotion(preferences, reducedMotion.matches);
 function reveal(element) {
   if (motionEnabled()) element.animate([{ opacity: 0, transform: 'translateY(7px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 190, easing: 'ease-out' });

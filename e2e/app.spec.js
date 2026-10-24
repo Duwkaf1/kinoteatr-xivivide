@@ -180,8 +180,9 @@ test('cinema mode, keyboard controls, close cleanup and compact progress writes'
 test('system reduced motion and persisted animation preference disable motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page);
   expect(await page.locator('.cinema-ticket').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
-  await page.locator('#motion-toggle').click();
-  await expect(page.locator('#motion-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#animations-setting').uncheck();
+  await expect(page.locator('#animations-setting')).not.toBeChecked();
   await page.reload();
   await expect(page.locator('body')).toHaveClass(/less-motion/);
   await page.getByRole('button', { name: 'Источники', exact: true }).click();

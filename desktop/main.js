@@ -1,11 +1,16 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { mkdirSync } from 'node:fs';
 import { EXAMPLE_SITES } from '../src/core.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+app.setName('Yoru');
 const profile = app.commandLine.getSwitchValue('user-data-dir');
-if (profile) app.setPath('userData', path.resolve(profile));
+// Keep the existing profile after rebranding so saved library/settings remain available.
+const userData = profile ? path.resolve(profile) : path.join(app.getPath('appData'), 'kadr-anime');
+mkdirSync(userData, { recursive: true });
+app.setPath('userData', userData);
 app.commandLine.appendSwitch('disable-http-cache');
 let mainWindow;
 const sourceWindows = new Map();
@@ -15,7 +20,7 @@ else {
   app.on('second-instance', () => { if (mainWindow?.isMinimized()) mainWindow.restore(); mainWindow?.focus(); });
   app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-      width: 1320, height: 900, minWidth: 960, minHeight: 680, title: 'Кадр — аниме', backgroundColor: '#111516', autoHideMenuBar: true,
+      width: 1320, height: 900, minWidth: 960, minHeight: 680, title: 'Yoru — аниме', backgroundColor: '#111516', autoHideMenuBar: true,
       webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     });
     mainWindow.on('closed', () => {

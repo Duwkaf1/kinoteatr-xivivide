@@ -20,7 +20,8 @@ try {
   await page.waitForSelector('#hero-button');
   await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
   assert.ok(page.url().startsWith('file:'));
-  assert.equal(await page.title(), 'Кадр — аниме');
+  assert.equal(await page.title(), 'Yoru — аниме');
+  assert.equal(await application.evaluate(({ app }) => app.getName()), 'Yoru');
   assert.equal(await page.evaluate(() => typeof window.kadr?.openSource), 'function');
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
   const security = await application.evaluate(({ BrowserWindow }) => {
