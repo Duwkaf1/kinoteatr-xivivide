@@ -8,10 +8,11 @@ const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), '
 const application = path.join(root, 'artifacts', 'Yoru-win32-x64');
 await access(path.join(application, 'Yoru.exe'));
 await access(path.join(application, 'resources', 'app.asar'));
+const prefix = process.platform === 'win32' ? '/' : '-';
 const candidates = [process.env.MAKENSIS, 'makensis',
   process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'NSIS', 'makensis.exe'),
   process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'NSIS', 'makensis.exe')].filter(Boolean);
-const compiler = candidates.find(candidate => spawnSync(candidate, ['-VERSION'], { encoding: 'utf8' }).status === 0);
+const compiler = candidates.find(candidate => spawnSync(candidate, [`${prefix}VERSION`], { encoding: 'utf8' }).status === 0);
 if (!compiler) throw new Error('Нужен бесплатный NSIS 3: Windows — choco install nsis; Linux — пакет nsis. Можно указать путь через MAKENSIS.');
 
 const files = []; const directories = []; let bytes = 0;
@@ -33,7 +34,6 @@ await writeFile(inventoryPath, [
   ...directories.sort((a, b) => b.split(path.sep).length - a.split(path.sep).length).map(dir => `RMDir "$INSTDIR\\${nsisPath(dir)}"`),
 ].join('\n') + '\n');
 const output = path.join(root, 'artifacts', `Yoru-Setup-${version}-x64.exe`);
-const prefix = process.platform === 'win32' ? '/' : '-';
 const definitions = { VERSION: version, APP_DIR: application, OUTPUT: output,
   ICON: path.join(root, 'assets', 'yoru.ico'), UNINSTALL_FILES: inventoryPath, SIZE_KB: Math.ceil(bytes / 1024) };
 const args = [`${prefix}V3`, ...Object.entries(definitions).map(([key, value]) => `${prefix}D${key}=${value}`), path.join(root, 'installer', 'yoru.nsi')];

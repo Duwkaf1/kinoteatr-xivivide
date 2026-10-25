@@ -1,5 +1,11 @@
 # Run only on a disposable Windows CI runner: installs to the real per-user folder.
 $ErrorActionPreference = 'Stop'
+trap {
+    # Keep a bounded failure diagnosis in the Actions annotations as well as logs.
+    $diagnosis = "$($_.Exception.Message) ($($_.InvocationInfo.ScriptLineNumber))" -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+    Write-Host "::error title=Windows installer verification::$diagnosis"
+    break
+}
 if ($env:CI -ne 'true') { throw 'Installer integration tests require a disposable Windows CI runner (CI=true).' }
 $root = Split-Path $PSScriptRoot -Parent
 $version = (Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json).version

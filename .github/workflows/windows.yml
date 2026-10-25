@@ -26,7 +26,14 @@ jobs:
         shell: pwsh
         run: choco install nsis --version=3.11 -y --no-progress
       - name: Build standalone Windows installer
-        run: node scripts/build-installer.js
+        shell: pwsh
+        run: |
+          & node scripts/build-installer.js 2>&1 | Tee-Object -Variable compilerOutput
+          if ($LASTEXITCODE -ne 0) {
+            $diagnosis = (($compilerOutput | Select-Object -Last 16) -join "`n") -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            Write-Host "::error title=NSIS build::$diagnosis"
+            exit 1
+          }
       - name: Install, launch, upgrade and uninstall on Windows
         shell: pwsh
         run: ./scripts/test-installer.ps1
