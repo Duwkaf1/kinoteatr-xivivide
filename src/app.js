@@ -646,3 +646,13 @@ discovery = catalogView({ $, node, state, toast,
 document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); changeView('catalog'); discovery.focus(); } });
 changeView('catalog', false);
 if (loaded.error) toast(loaded.error);
+
+let uninstallBusy=false;
+$('#uninstall-app').onclick=async()=>{
+  if(uninstallBusy)return;
+  if(!window.kadr?.uninstallApp){$('#uninstall-status').textContent='Полное удаление доступно в установленной Windows-версии Yoru.';return;}
+  uninstallBusy=true;$('#uninstall-app').disabled=true;$('#uninstall-status').textContent='';
+  try{const result=await window.kadr.uninstallApp();$('#uninstall-status').textContent=result.status==='started'?'Закрываем Yoru и запускаем удаление…':result.message||'';}
+  catch{$('#uninstall-status').textContent='Не удалось запустить удаление. Попробуй ещё раз.';}
+  finally{uninstallBusy=false;$('#uninstall-app').disabled=false;}
+};

@@ -18,6 +18,7 @@ if ((Test-Path $installDir) -or (Test-Path $registryKey) -or (Test-Path $desktop
     throw 'Refusing to alter an existing Yoru installation.'
 }
 $profileDir = Join-Path $env:APPDATA 'kadr-anime'
+if (Test-Path $profileDir) { throw 'Refusing full-removal tests against a pre-existing Yoru profile.' }
 New-Item -ItemType Directory -Force $profileDir | Out-Null
 $sentinel = Join-Path $profileDir "installer-test-$([guid]::NewGuid()).txt"
 $savedData = 'Библиотека, заметки и собственная тема — сохранить.'
@@ -136,6 +137,8 @@ function Assert-Installed($directory) {
     Assert-True (Test-Path (Join-Path $directory 'Yoru.exe')) 'Missing installed EXE'
     Assert-True (Test-Path (Join-Path $directory 'resources/app.asar')) 'Missing installed ASAR'
     Assert-True (Test-Path (Join-Path $directory 'Uninstall Yoru.exe')) 'Missing uninstaller'
+    $marker = Get-Content (Join-Path $directory 'yoru-install.json') -Raw | ConvertFrom-Json
+    Assert-True ($marker.fullUninstall -eq $true) 'Missing full-uninstall capability marker'
     $registration = Get-ItemProperty $registryKey
     Assert-True ($registration.DisplayVersion -eq $version) 'Incorrect installed version'
     Assert-True ($registration.InstallLocation -eq $directory) 'Incorrect installed directory'
@@ -231,6 +234,35 @@ try {
     Uninstall $customDir
     if (Test-Path $customDir) { Remove-Item $customDir }
     Write-Host 'PASS: Unicode path with spaces; install, shortcuts and uninstall'
+
+    # Exercise deletion through the actual settings button, including cancel.
+    Run-Silent $installer @('/S')
+    Assert-Installed $installDir
+    [IO.File]::WriteAllText((Join-Path $installDir 'личный файл.txt'), 'keep')
+    $outside = Join-Path $env:TEMP "Yoru unrelated $([guid]::NewGuid())"
+    New-Item -ItemType Directory $outside | Out-Null
+    [IO.File]::WriteAllText((Join-Path $outside 'keep.txt'), 'keep outside profile')
+    New-Item -ItemType Junction -Path (Join-Path $profileDir 'outside-link') -Target $outside | Out-Null
+    $env:YORU_SMOKE_EXECUTABLE = Join-Path $installDir 'Yoru.exe'
+    try {
+        & node (Join-Path $PSScriptRoot 'smoke-uninstall.js')
+        if ($LASTEXITCODE -ne 0) { throw 'In-app full uninstall failed' }
+    } finally { Remove-Item Env:YORU_SMOKE_EXECUTABLE -ErrorAction SilentlyContinue }
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while ((Test-Path $profileDir) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 250 }
+    Assert-True (-not (Test-Path $profileDir)) 'Full removal left the personal profile behind'
+    Assert-True (-not (Test-Path $registryKey)) 'Full removal left its registration behind'
+    Assert-True (-not (Test-Path $desktopLink)) 'Full removal left the desktop shortcut'
+    Assert-True (-not (Test-Path $startLink)) 'Full removal left the Start shortcut'
+    Assert-True ([IO.File]::ReadAllText((Join-Path $outside 'keep.txt')) -eq 'keep outside profile') 'Profile cleanup followed a junction into unrelated files'
+    Assert-True ([IO.File]::ReadAllText((Join-Path $installDir 'личный файл.txt')) -eq 'keep') 'Full removal deleted an unrelated installation file'
+    Remove-Item (Join-Path $installDir 'личный файл.txt')
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while ((Test-Path (Join-Path $installDir 'Uninstall Yoru.exe')) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 250 }
+    if (Test-Path $installDir) { Remove-Item $installDir }
+    Remove-Item $outside -Recurse
+    Write-Host 'PASS: full uninstall from settings removes profile, files, shortcuts and registration; unrelated files and junction targets survive'
+
 } finally {
     Remove-Item $sentinel -ErrorAction SilentlyContinue
 }

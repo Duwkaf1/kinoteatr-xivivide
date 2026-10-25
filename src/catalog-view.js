@@ -16,11 +16,21 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
   function cancelRandom(){randomSerial++;randomRequest?.abort();$('#catalog-random').disabled=false;$('#catalog-random').setAttribute('aria-busy','false');$('#catalog-random-label').textContent='Случайное аниме';}
   function invalidate(){clearTimeout(searchTimer);listRequest?.abort();listSerial++;pending=true;hasMore=false;$('#catalog-more').hidden=true;$('#catalog-feedback').hidden=true;cancelRandom();}
   function poster(item,className){
-    const holder=node('div',undefined,className);
-    if(item.posterUrl){const image=node('img');image.alt='';image.loading='lazy';image.decoding='async';image.referrerPolicy='no-referrer';image.onerror=()=>{image.remove();holder.classList.add('missing');holder.append(icon('image'));};image.src=item.posterUrl;holder.append(image);}
-    else{holder.classList.add('missing');holder.append(icon('image'));}
-    return holder;
+    const holder=node('div',undefined,className);const placeholder=icon('image');
+    const missing=()=>{holder.classList.add('missing');if(!placeholder.isConnected)holder.prepend(placeholder);};
+    if(!item.posterUrl&&item.provider!=='yummyani'){missing();return holder;}
+    const image=node('img');image.alt='';image.loading='lazy';image.decoding='async';image.referrerPolicy='no-referrer';
+    const unavailable=()=>{image.remove();missing();};
+    const fallback=async(after='')=>{
+      unavailable();if(!holder.isConnected)return;
+      try{const result=await api.poster(item.id,{after});if(!holder.isConnected||!result.posterUrl)return;
+        image.onerror=()=>result.source==='anilibria'?fallback('anilibria'):unavailable();image.src=result.posterUrl;placeholder.remove();holder.classList.remove('missing');holder.prepend(image);
+      }catch{}
+    };
+    image.onerror=()=>item.provider==='yummyani'?fallback():unavailable();
+    if(item.posterUrl)image.src=item.posterUrl;else queueMicrotask(()=>fallback());holder.append(image);return holder;
   }
+
   function cardFor(item){
     const card=node('article',undefined,'catalog-card');card.dataset.releaseId=item.id;
     const open=node('button',undefined,'catalog-card-open');open.type='button';open.setAttribute('aria-label',`Открыть: ${item.title}`);const art=poster(item,'catalog-poster');

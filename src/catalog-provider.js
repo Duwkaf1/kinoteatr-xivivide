@@ -10,9 +10,10 @@ export function catalogRequestURL(data, origin = CATALOG_HOSTS[0]) {
   if (!CATALOG_HOSTS.includes(origin) || !data || typeof data !== 'object') throw new Error('Некорректный запрос каталога.');
   if (data.provider !== undefined && !['anilibria','yummyani'].includes(data.provider)) throw new Error('Неизвестный каталог.');
   if (data.kind === 'genres') return new URL('/api/v1/anime/genres', origin).href;
-  if (data.kind === 'release') {
+  if (data.kind === 'release' || data.kind === 'poster') {
+    if(data.kind === 'poster' && (data.provider !== 'yummyani' || (data.after !== undefined && !['','anilibria'].includes(data.after)))) throw new Error('Некорректный запрос обложки.');
     if (!Number.isSafeInteger(data.releaseId) || data.releaseId < 1) throw new Error('Не удалось определить аниме.');
-    return data.provider === 'yummyani' ? yummyURL(data) : new URL(`/api/v1/anime/releases/${data.releaseId}`, origin).href;
+    return data.provider === 'yummyani' ? yummyURL({...data,kind:'release'}) : new URL(`/api/v1/anime/releases/${data.releaseId}`, origin).href;
   }
   if (!['list','random'].includes(data.kind) || typeof data.query !== 'string' || data.query.length > 100 || !Number.isInteger(data.page) || data.page < 1 || data.page > 10000 || !Object.hasOwn(CATALOG_SORTS, data.sort)) throw new Error('Некорректные параметры поиска.');
   const { genres, age } = catalogFilters(data);

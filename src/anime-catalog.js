@@ -44,6 +44,8 @@ export function mergeCatalogTitle(fresh, saved) {
 }
 export function createAnimeCatalog({ transport, now = Date.now } = {}) {
   const cache = new Map(); let cacheBytes=0;
+  let posterActive=0;const posterQueue=[];
+  async function posterSlot(task){if(posterActive>=2)await new Promise(resolve=>posterQueue.push(resolve));posterActive++;try{return await task();}finally{posterActive--;posterQueue.shift()?.();}}
   async function request(data,signal){
     if(transport)return transport(data,{signal});
     if(globalThis.window?.kadr?.catalogRequest){
@@ -68,6 +70,7 @@ export function createAnimeCatalog({ transport, now = Date.now } = {}) {
     return result;
   }
   return {
+    poster(releaseId,{after='',...options}={}){return posterSlot(()=>load(`poster:${releaseId}:${after}`,{kind:'poster',provider:'yummyani',releaseId,after},raw=>{if(raw?.releaseId!==releaseId)throw new Error('Не совпала обложка аниме.');return raw;},options));},
     genres({provider='anilibria',...options}={}){if(provider==='yummyani')return Promise.resolve(YUMMY_GENRES);return load('genres',{kind:'genres'},raw=>{
       if(!Array.isArray(raw))throw new Error('Не удалось загрузить жанры.');
       return raw.slice(0,100).filter(g=>Number.isSafeInteger(g?.id)&&g.id>0&&typeof g.name==='string').map(g=>({id:g.id,name:g.name.slice(0,60)})).sort((a,b)=>a.name.localeCompare(b.name,'ru'));

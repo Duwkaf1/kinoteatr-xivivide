@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net } from 'electron';
+import { app, BrowserWindow, ipcMain, net, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
@@ -6,6 +6,7 @@ import { EXAMPLE_SITES } from '../src/core.js';
 import { anidbPage } from '../src/anidb.js';
 import { animeId, webPlayerURL } from '../src/media-schema.js';
 import { boundedText } from '../src/subtitles.js';
+import { uninstallAvailability, uninstallHandler } from './uninstall.js';
 import { requestCatalog } from './catalog-network.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -59,9 +60,13 @@ else {
     const trusted = event => {
       if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Недоступно');
     };
+    const availability=()=>uninstallAvailability({packaged:app.isPackaged,exe:app.getPath('exe'),appData:app.getPath('appData'),userData:app.getPath('userData')});
+    const uninstall=uninstallHandler({availability,confirm:async()=>{const result=await dialog.showMessageBox(mainWindow,{type:'warning',title:'Удалить Yoru полностью?',message:'Удалить приложение и все его данные?',detail:'Будут удалены Yoru, библиотека, история просмотра, заметки, темы и кэш. Восстановить эти данные после удаления нельзя. Твои видеофайлы и документы вне профиля Yoru останутся на месте.',buttons:['Отмена','Удалить полностью'],defaultId:0,cancelId:0,noLink:true});return result.response===1;},quit:()=>app.quit()});
+    ipcMain.handle('app:uninstall-status',async event=>{trusted(event);const result=await availability();return {available:result.available,message:result.reason||''};});
+    ipcMain.handle('app:uninstall',event=>{trusted(event);return uninstall();});
     ipcMain.handle('catalog:request', async (event, data) => {
       trusted(event);
-      if (typeof data?.requestId !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(data.requestId) || catalogRequests.has(data.requestId) || catalogRequests.size >= 4) throw new Error('Подожди завершения поиска и попробуй ещё раз.');
+      if (typeof data?.requestId !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(data.requestId) || catalogRequests.has(data.requestId) || catalogRequests.size >= 6) throw new Error('Подожди завершения поиска и попробуй ещё раз.');
       const controller = new AbortController(); catalogRequests.set(data.requestId, controller);
       try { return await requestCatalog(data, { fetcher: net.fetch, signal: controller.signal }); }
       finally { catalogRequests.delete(data.requestId); }

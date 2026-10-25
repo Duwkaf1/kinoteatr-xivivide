@@ -1,4 +1,5 @@
 import { CATALOG_HOSTS, catalogRequestURL } from '../src/catalog-provider.js';
+import { resolvePoster } from './poster-network.js';
 import { boundedText } from '../src/subtitles.js';
 
 // The renderer supplies a typed operation, never a destination URL. Only these
@@ -15,7 +16,8 @@ export async function requestCatalog(data, { fetcher = globalThis.fetch, signal 
       if (response.status === 429) throw new Error('Каталог просит подождать. Повтори поиск немного позже.');
       if (response.status === 404) throw new Error('Это аниме больше не найдено в каталоге.');
       const body = await boundedText(response, 2 * 1024 * 1024);
-      return JSON.parse(body);
+      const raw=JSON.parse(body);
+      return data.kind === 'poster' ? await resolvePoster(raw,{releaseId:data.releaseId,after:data.after,fetcher,signal:combined}) : raw;
     } catch (error) {
       if (combined.aborted) throw error;
       failure = error;

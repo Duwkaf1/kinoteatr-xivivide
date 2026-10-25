@@ -117,3 +117,7 @@ body:not([data-profile="quality"]) .catalog-card,.less-motion .catalog-card { tr
 @media(max-width:540px) { .catalog-provider-row label { align-items:start;flex-direction:column;gap:6px; }.catalog-provider-row select { width:100%;min-width:0; } }
 .release-actions.website-actions { display:flex;justify-content:flex-start; }.release-actions.website-actions .primary { width:auto;min-width:min(260px,100%);max-width:100%;white-space:nowrap; }
 @media(max-width:540px) { .release-actions.website-actions .primary { width:100%;min-width:0;font-size:12px; } }
+
+.uninstall-card .danger-button { border-color:color-mix(in srgb,var(--text) 30%,var(--line));white-space:normal;min-width:180px;max-width:260px; }
+.uninstall-card .danger-button:hover { border-color:#c87777;background:color-mix(in srgb,#a83838 12%,var(--surface-raised)); }
+@media(max-width:700px) { .uninstall-card .setting-row { flex-wrap:wrap; }.uninstall-card .danger-button { max-width:100%; } }
