@@ -36,7 +36,9 @@ await writeFile(inventoryPath, [
 const output = path.join(root, 'artifacts', `Yoru-Setup-${version}-x64.exe`);
 const definitions = { VERSION: version, APP_DIR: application, OUTPUT: output,
   ICON: path.join(root, 'assets', 'yoru.ico'), UNINSTALL_FILES: inventoryPath, SIZE_KB: Math.ceil(bytes / 1024) };
-const args = [`${prefix}V3`, ...Object.entries(definitions).map(([key, value]) => `${prefix}D${key}=${value}`), path.join(root, 'installer', 'yoru.nsi')];
+// NSIS defaults to the Windows ANSI codepage for scripts without a BOM.
+// Explicit UTF-8 also preserves Cyrillic filenames in the generated inventory.
+const args = [`${prefix}V3`, `${prefix}INPUTCHARSET`, 'UTF8', ...Object.entries(definitions).map(([key, value]) => `${prefix}D${key}=${value}`), path.join(root, 'installer', 'yoru.nsi')];
 const result = spawnSync(compiler, args, { cwd: root, stdio: 'inherit' });
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`NSIS exited with ${result.status}`);
