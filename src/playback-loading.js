@@ -6,7 +6,7 @@ export function playbackLoading({ host, preferences, reducedMotion }) {
   let pending = false; let visible = false; let timer; let root;
   function remove() { root?.remove(); root = null; }
   function render() {
-    if (!pending || !visible || document.hidden) { remove(); return; }
+    if (!pending || !visible || document.hidden || host.checkVisibility?.() === false) { remove(); return; }
     if (!root) {
       root = document.createElement('div'); root.id = 'playback-loading'; root.className = 'playback-loading'; root.setAttribute('role', 'status'); root.setAttribute('aria-live', 'polite');
       const orb = document.createElement('div'); orb.className = 'loading-orb'; orb.setAttribute('aria-hidden', 'true');

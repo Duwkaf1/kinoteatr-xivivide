@@ -1,10 +1,11 @@
+import { legacyOpen, legacyLibrary, manualAdd } from './legacy-helpers.js';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const media = readFileSync(new URL('../test/fixtures/tone.webm', import.meta.url));
 const episode = (id='1') => ({ id, number:Number(id), sources:[{id:'main',voice:'AniDUB',language:'ru',quality:1080,url:'https://audit.example.test/tone.webm'}] });
 const title = (id='audit') => ({ id,title:'Проверка аудита',episodes:[episode()] });
 async function seed(page,titles,extra={}) { await page.addInitScript(({titles,extra})=>{localStorage.setItem('kadr.library.v1',JSON.stringify({titles,favorites:[],progress:{},quality:1080}));for(const [k,v]of Object.entries(extra))localStorage.setItem(k,v);},{titles,extra}); }
-async function open(page) { await page.goto(process.env.YORU_AUDIT_URL || 'http://127.0.0.1:5173'); }
+async function open(page) { await legacyOpen(page,process.env.YORU_AUDIT_URL || 'http://127.0.0.1:5173'); }
 async function serve(page) { await page.route('https://audit.example.test/**',route=>{
   const match=route.request().headers().range?.match(/^bytes=(\d+)-(\d*)$/);const start=match?Number(match[1]):0;const end=match?.[2]?Math.min(Number(match[2]),media.length-1):media.length-1;
   return route.fulfill({status:match?206:200,contentType:'video/webm',headers:{'access-control-allow-origin':'*','accept-ranges':'bytes',...(match?{'content-range':`bytes ${start}-${end}/${media.length}`}:{})},body:media.subarray(start,end+1)});
@@ -19,10 +20,10 @@ test('audit: null AniDB configuration cannot prevent application startup', async
 
 test('audit: adding beyond 500 titles is rejected before changing or saving the library', async ({page})=>{
   const titles=Array.from({length:500},(_,i)=>({...title(`full-${i}`),title:`История ${i}`}));await seed(page,titles);await open(page);
-  await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();await page.locator('#add-form [name=title]').fill('Лишнее аниме');await page.locator('#add-form [name=url]').fill('https://audit.example.test/tone.webm');
+  await manualAdd(page);await page.locator('#add-form [name=title]').fill('Лишнее аниме');await page.locator('#add-form [name=url]').fill('https://audit.example.test/tone.webm');
   await page.getByRole('button',{name:'Добавить',exact:true}).click();await expect(page.locator('#form-error')).toContainText('500');
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('kadr.library.v1')).titles.length)).toBe(500);
-  await page.reload();await expect(page.locator('#library-count')).toHaveText('500');await expect(page.locator('.anime-card')).toHaveCount(24);
+  await page.reload(); await legacyLibrary(page);await expect(page.locator('#library-count')).toHaveText('500');await expect(page.locator('.anime-card')).toHaveCount(24);
 });
 
 test('audit: importing while watching preserves later subtitle and cast edits on the active title', async ({page})=>{
@@ -39,7 +40,7 @@ test('audit: same-name subtitle variants keep their exact selection through styl
   await seed(page,[data]);await serve(page);await open(page);await play(page);await page.locator('#subtitle-selector').selectOption('b');
   await page.locator('#open-player-settings').click();await page.locator('.subtitle-appearance > summary').click();await page.locator('#subtitle-size').fill('120');await page.locator('#subtitle-size').blur();await expect(page.locator('#subtitle-selector')).toHaveValue('b');
   await page.locator('#player-engine').selectOption('videojs');await expect(page.locator('#subtitle-selector')).toHaveValue('b');await page.locator('#close-player-settings').click();
-  await page.reload();await play(page);await expect(page.locator('#subtitle-selector')).toHaveValue('b');
+  await page.reload(); await legacyLibrary(page);await play(page);await expect(page.locator('#subtitle-selector')).toHaveValue('b');
 });
 
 test('audit: combined minimum-size and 200-percent zoom layout keeps player controls inside the window', async ({page})=>{
@@ -100,7 +101,7 @@ for (const action of ['add','subtitle']) test(`storage failure during ${action} 
     Storage.prototype.setItem=function(key,value){if(key==='kadr.library.v1')throw new DOMException('Quota exceeded','QuotaExceededError');return original.call(this,key,value);};
   });
   if(action==='add'){
-    await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();
+    await manualAdd(page);
     await page.locator('#add-form [name=title]').fill('Только в памяти');
     await page.locator('#add-form [name=url]').fill('https://audit.example.test/tone.webm');
     await page.getByRole('button',{name:'Добавить',exact:true}).click();
@@ -122,11 +123,11 @@ test('mixed button sequences keep the library, settings, dialogs and player oper
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const data=title();data.episodes.push(episode('2'));await seed(page,[data],{'kadr.preferences.v1':JSON.stringify({autoNext:false})});await serve(page);await open(page);
   for(let iteration=0;iteration<6;iteration++){
-    for(const name of ['Избранное','История','Источники','Настройки'])await page.getByRole('button',{name,exact:true}).click();
+    for(const name of ['Избранное','История','Каталог','Настройки'])await page.getByRole('button',{name,exact:true}).click();
     await page.locator(`#settings-${iteration%2?'advanced':'basic'}-tab`).click();
     await page.locator('#settings-basic-tab').click();await page.locator('#performance-level').fill(String(iteration%3));
     await page.locator(`input[name=theme][value=${['night','oled','nord','sakura','cream','custom'][iteration]}]`).check();
-    await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();await page.locator('#choose-add-poster').click();await page.locator('#cancel-poster').click();await page.keyboard.press('Escape');
+    await manualAdd(page);await page.locator('#choose-add-poster').click();await page.locator('#cancel-poster').click();await page.keyboard.press('Escape');
     await page.getByRole('button',{name:'Библиотека',exact:true}).click();await play(page);
     if(iteration>0){if(!await page.locator('#episode-picker').evaluate(e=>e.open))await page.locator('#episode-picker > summary').click();await page.locator('#episode-list button').first().click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());}
     await page.locator('#open-player-settings').click();await page.locator('#player-engine').selectOption(iteration%2?'videojs':'standard');await page.locator('#close-player-settings').click();
@@ -135,5 +136,5 @@ test('mixed button sequences keep the library, settings, dialogs and player oper
     await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();
     await expect(page.locator('video')).toHaveCount(0);await expect(page.locator('#playback-loading')).toHaveCount(0);await expect(page.locator('dialog[open]')).toHaveCount(0);
   }
-  await page.reload();await expect(page.locator('#library-count')).toHaveText('1');expect(errors).toEqual([]);
+  await page.reload(); await legacyLibrary(page);await expect(page.locator('#library-count')).toHaveText('1');expect(errors).toEqual([]);
 });

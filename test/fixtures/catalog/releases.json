@@ -1,0 +1,306 @@
+[
+  {
+    "id": 9542,
+    "name": {
+      "main": "Провожающая в последний путь Фрирен",
+      "english": "Sousou no Frieren"
+    },
+    "year": 2023,
+    "poster": {
+      "preview": "/storage/releases/posters/9542/8UGD4dHHp1kdjquBph2CUSk9pLNsGtYw.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-9542-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/9542/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9542/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-9542-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/9542/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9542/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 5620,
+    "name": {
+      "main": "Виолетта Эвергарден",
+      "english": "Violet Evergarden"
+    },
+    "year": 2018,
+    "poster": {
+      "preview": "/storage/releases/posters/5620/5AIrXEE9Xnse3KQixWYT6wVaUkrhidjq.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-5620-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/5620/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/5620/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-5620-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/5620/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/5620/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 9293,
+    "name": {
+      "main": "Одинокий рокер!",
+      "english": "BOCCHI THE ROCK!"
+    },
+    "year": 2022,
+    "poster": {
+      "preview": "/storage/releases/posters/9293/KarR06vYIuQfrUhPaghuq6VPSJ7JNfBb.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-9293-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/9293/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9293/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-9293-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/9293/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9293/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 9307,
+    "name": {
+      "main": "Киберпанк: Бегущие по краю",
+      "english": "Cyberpunk: Edgerunners"
+    },
+    "year": 2022,
+    "poster": {
+      "preview": "/storage/releases/posters/9307/UpcQ9ZT3vcCR8XwVX6iZ2XHSqL46vGRB.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-9307-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/9307/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9307/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-9307-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/9307/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/9307/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 8789,
+    "name": {
+      "main": "Магическая битва",
+      "english": "Jujutsu Kaisen"
+    },
+    "year": 2020,
+    "poster": {
+      "preview": "/storage/releases/posters/8789/4aPhTR3xO8o0XkJrVruXqjDEvKllfXaG.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-8789-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/8789/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8789/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-8789-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/8789/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8789/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 8325,
+    "name": {
+      "main": "Клинок, рассекающий демонов",
+      "english": "Kimetsu no Yaiba"
+    },
+    "year": 2019,
+    "poster": {
+      "preview": "/storage/releases/posters/8325/zLcjDIverP57Eu0Fp7BHVe8czgSLLvKY.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-8325-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/8325/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8325/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-8325-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/8325/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8325/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 6826,
+    "name": {
+      "main": "Твоё имя",
+      "english": "Kimi no Na wa"
+    },
+    "year": 2016,
+    "poster": {
+      "preview": "/storage/releases/posters/6826/Y9Q8S6htXIlEoqQnh09Yv1cHUbpLE97Z.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-6826-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/6826/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/6826/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-6826-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/6826/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/6826/2/master-720.m3u8"
+      }
+    ]
+  },
+  {
+    "id": 8674,
+    "name": {
+      "main": "Врата Штейна",
+      "english": "Steins;Gate"
+    },
+    "year": 2011,
+    "poster": {
+      "preview": "/storage/releases/posters/8674/HTirp3ubtWJ9W3oIjzPl9HHQl1TFuDqY.webp"
+    },
+    "type": {
+      "description": "ТВ"
+    },
+    "episodes_total": 2,
+    "description": "Архивная карточка для проверки интерфейса. Видео в проверках создано в проекте.",
+    "genres": [
+      {
+        "name": "Приключения"
+      },
+      {
+        "name": "Фэнтези"
+      }
+    ],
+    "episodes": [
+      {
+        "id": "episode-8674-1",
+        "ordinal": 1,
+        "hls_1080": "https://qa.libria.fun/8674/1/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8674/1/master-720.m3u8"
+      },
+      {
+        "id": "episode-8674-2",
+        "ordinal": 2,
+        "hls_1080": "https://qa.libria.fun/8674/2/master.m3u8",
+        "hls_720": "https://qa.libria.fun/8674/2/master-720.m3u8"
+      }
+    ]
+  }
+]

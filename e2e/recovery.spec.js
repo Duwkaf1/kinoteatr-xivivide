@@ -1,3 +1,4 @@
+import { legacyOpen, legacyLibrary, manualAdd } from './legacy-helpers.js';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const media=readFileSync(new URL('../test/fixtures/playback/tone.mp4',import.meta.url));
@@ -15,7 +16,7 @@ function fulfill(route){
   if(start>=media.length)return route.fulfill({status:416,headers:{'content-range':`bytes */${media.length}`}});
   return route.fulfill({status:match?206:200,contentType:'video/mp4',headers:{'access-control-allow-origin':'*','accept-ranges':'bytes',...(match?{'content-range':`bytes ${start}-${end}/${media.length}`}:{})},body:media.subarray(start,end+1)});
 }
-async function open(page){await page.goto('http://127.0.0.1:5173');await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();}
+async function open(page){await legacyOpen(page);await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();}
 for(const engine of ['standard','videojs']){
   test(`${engine}: actual thirty-second timeout switches provider once with the same voice, episode and saved position`,async({page})=>{
     test.setTimeout(45000);
@@ -50,7 +51,7 @@ for(const engine of ['standard','videojs']){
     await page.locator('video').evaluate(v=>v.dispatchEvent(new Event('error')));
     await expect(page.locator('#playback-status')).toContainText('AniDUB · 1080p · пауза');await expect(page.locator('#source-player')).toHaveValue('dub');await expect(page.locator('#toast')).toContainText('Переключаю на AniDUB');
     expect(await page.locator('video').evaluate(v=>v.currentTime)).toBe(2);
-    await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();
+    await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();await page.reload(); await legacyLibrary(page);await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();
     await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());await expect(page.locator('#playing-title')).toContainText('Сезон 2 · Серия 7');
     expect(await page.locator('video').evaluate(v=>v.currentTime)).toBeGreaterThanOrEqual(2);
     expect(requests.some(p=>['/foreign.mp4','/low.mp4'].includes(p))).toBe(false);expect(errors).toEqual([]);
@@ -65,7 +66,7 @@ test('cast includes main and secondary characters first and keeps their notes af
   await expect(page.locator('.cast-card h3')).toHaveText(['Главная героиня','Второстепенная героиня','Гость']);
   await expect(page.locator('.character-role')).toHaveText(['Главный персонаж','Второстепенный персонаж','Эпизодическая роль']);
   await page.locator('.character-note').nth(1).fill('Запомнить этого персонажа');await page.locator('.character-note').nth(1).blur();
-  await page.reload();await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();await page.locator('#cast-panel > summary').click();
+  await page.reload(); await legacyLibrary(page);await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();await page.locator('#cast-panel > summary').click();
   await expect(page.locator('.cast-card h3').nth(1)).toHaveText('Второстепенная героиня');await expect(page.locator('.character-note').nth(1)).toHaveValue('Запомнить этого персонажа');
 });
 
@@ -77,7 +78,7 @@ test('different anime keep independent season, episode and timing after restarti
   await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('kadr.playback.v1')).progress.recovery.time)).toBe(2.75);
   await page.getByRole('button',{name:'Смотреть: Другое аниме',exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>{v.pause();v.currentTime=1;});
   await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('kadr.playback.v1')).progress.second.time)).toBe(1);
-  await page.reload();await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());
+  await page.reload(); await legacyLibrary(page);await page.getByRole('button',{name:'Смотреть: Проверка восстановления',exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());
   await expect(page.locator('#playing-title')).toContainText('Сезон 2 · Серия 7');expect(await page.locator('video').evaluate(v=>v.currentTime)).toBeGreaterThanOrEqual(2.75);
   await page.getByRole('button',{name:'Смотреть: Другое аниме',exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());
   await expect(page.locator('#playing-title')).toHaveText('Другое аниме · Серия 1');expect(await page.locator('video').evaluate(v=>v.currentTime)).toBeGreaterThanOrEqual(1);

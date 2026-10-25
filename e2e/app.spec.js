@@ -1,3 +1,5 @@
+import { legacyOpen, legacyLibrary, manualAdd } from './legacy-helpers.js';
+import { serveCatalog } from './catalog-fixtures.js';
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -43,7 +45,7 @@ function fulfillMedia(route, data, contentType) {
   if (match) headers['content-range'] = `bytes ${start}-${end}/${data.length}`;
   return route.fulfill({ status: match ? 206 : 200, contentType, headers, body: data.subarray(start, end + 1) });
 }
-async function open(page) { await page.goto('http://127.0.0.1:5173'); }
+async function open(page) { await legacyOpen(page); }
 async function detailedSettings(page) { await page.locator('#settings-advanced-tab').click(); }
 async function chooseProfile(page, profile) {
   if (profile === 'manual') { await detailedSettings(page); await page.locator('#manual-mode').check(); }
@@ -62,7 +64,7 @@ test('choose a real catalog poster explicitly, persist it, edit and remove it', 
     expect(url.searchParams.get('f[search]')).toBe('Фрирен');
     return route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ data: posterCatalog.filter(p => p.english.startsWith('Sousou no Frieren')).map(p => ({ id: p.id, name: { main: p.title, english: p.english }, year: p.year, poster: { preview: new URL(p.posterUrl).pathname } })) }) });
   });
-  await open(page); await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await open(page); await manualAdd(page);
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Моя Фрирен');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.test/first.webm');
   await page.locator('#choose-add-poster').click(); await page.locator('#poster-search').fill('Фрирен');
@@ -78,7 +80,7 @@ test('choose a real catalog poster explicitly, persist it, edit and remove it', 
   await expect(page.locator('.artwork')).toHaveClass(/has-poster/);
   await expect(page.locator('.artwork img')).toHaveAttribute('loading', 'lazy');
   await expect(page.locator('.artwork img')).toHaveAttribute('referrerpolicy', 'no-referrer');
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await expect(page.locator('.artwork img')).toHaveAttribute('src', item.posterUrl);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].anilibriaId)).toBe(item.id);
   await page.getByRole('button', { name: 'Изменить постер: Моя Фрирен' }).click();
@@ -88,7 +90,7 @@ test('choose a real catalog poster explicitly, persist it, edit and remove it', 
   await page.locator('#poster-url').fill(''); await page.getByRole('button', { name: 'Сохранить обложку' }).click();
   await expect(page.locator('.poster-fallback')).toHaveText('Постер не выбран');
   await expect(page.locator('.artwork img')).toHaveCount(0);
-  await page.reload(); await expect(page.locator('.artwork img')).toHaveCount(0);
+  await page.reload(); await legacyLibrary(page); await expect(page.locator('.artwork img')).toHaveCount(0);
   expect(searches).toBe(1);
 });
 
@@ -96,7 +98,7 @@ test('broken poster and unavailable catalog do not stop video or overwrite an ex
   await open(page); await serveVideo(page);
   await page.route('https://example.test/broken.jpg', route => route.fulfill({ status: 404 }));
   await page.route('https://anilibria.top/api/**', route => route.fulfill({ status: 429, headers: { 'access-control-allow-origin': '*' } }));
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd(page);
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Фрирен');
   await page.locator('#add-poster-url').fill('https://example.test/broken.jpg');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.test/first.webm');
@@ -112,32 +114,27 @@ test('broken poster and unavailable catalog do not stop video or overwrite an ex
   await expect.poll(() => page.locator('video').evaluate(v => v.currentTime)).toBeGreaterThan(0);
 });
 
-test('empty library, site cards and manual import errors are explicit', async ({ page }) => {
-  await open(page);
-  await expect(page.getByText('Здесь начнётся твой следующий сеанс')).toBeVisible();
-  await page.getByRole('button', { name: 'Источники' }).click();
-  await expect(page.getByText('g0e-1ka1v5q.troutcdn.site', { exact: true })).toBeVisible();
-  await expect(page.getByText('brogiro.cfd', { exact: true })).toBeVisible();
-  await expect(page.getByText('old.yummyani.me', { exact: true })).toBeVisible();
-  await expect(page.getByText('animejoy.ru', { exact: true })).toBeVisible();
-  await expect(page.getByText('ТРЕБУЕТ ПРОВЕРКИ')).toHaveCount(4);
+test('empty library directs to the catalog and legacy import errors remain explicit', async ({ page }) => {
+  await open(page); await expect(page.getByText('Здесь начнётся твой следующий сеанс')).toBeVisible();
+  await page.getByRole('button', { name: 'Каталог', exact: true }).click();
+  await expect(page.locator('#catalog-search')).toBeVisible();
+  await expect(page.getByText('ТРЕБУЕТ ПРОВЕРКИ')).toHaveCount(0);
   await page.locator('#import-file').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
   await expect(page.locator('#toast')).toContainText('Импорт не выполнен');
-  await page.screenshot({ path: 'test-results/sources.png', fullPage: true });
 });
 test('add, search, favorite and reload persist user library', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd(page);
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Личная история');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.test/test.webm');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Личная история' })).toBeVisible();
   await page.getByRole('button', { name: 'В избранное: Личная история', exact: true }).click();
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await page.getByRole('button', { name: 'Избранное', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Личная история' })).toBeVisible();
   await page.getByRole('searchbox').fill('не найдено');
-  await expect(page.getByText('Ничего не нашлось')).toBeVisible();
+  await expect(page.locator('#library-grid').getByText('Ничего не нашлось')).toBeVisible();
 });
 test('real video and audio metadata, progress, pause, next episode and fixed quality', async ({ page }) => {
   await seed(page, [anime([source('first')])]); await serveVideo(page); await open(page);
@@ -314,15 +311,15 @@ test('cinema mode, keyboard controls, close cleanup and compact progress writes'
 
 test('system reduced motion and persisted animation preference disable motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page);
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd(page);
   expect(await page.locator('#add-dialog').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await detailedSettings(page); await page.locator('#animations-setting').uncheck();
   await expect(page.locator('#animations-setting')).not.toBeChecked();
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await expect(page.locator('body')).toHaveClass(/less-motion/);
-  await page.getByRole('button', { name: 'Источники', exact: true }).click();
+  await page.getByRole('button', { name: 'Каталог', exact: true }).click();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
 });
 
@@ -355,7 +352,7 @@ test('all four themes apply to the whole app and the selected theme survives rel
   }
   expect(backgrounds.size).toBe(4);
   expect(await page.locator('html').evaluate(e => getComputedStyle(e).colorScheme)).toBe('light');
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'cream');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -372,12 +369,12 @@ test('economy mode and quality persist for an empty library and limit rendering'
   await expect(page.locator('#default-quality')).toHaveValue('1080');
   await expect(page.locator('body')).toHaveClass(/economy-mode/);
   await expect(page.locator('#animations-setting')).toBeDisabled();
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await expect(page.locator('#performance-level')).toHaveValue('0');
   await expect(page.locator('#default-quality')).toHaveValue('1080');
   await detailedSettings(page); await page.locator('#default-quality').selectOption('720');
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await expect(page.locator('#default-quality')).toHaveValue('720');
   const titles = Array.from({ length: 40 }, (_, i) => ({ ...anime([source('first')]), id: `economy-${i}`, title: `История ${i}` }));
@@ -434,12 +431,12 @@ test('custom colors and roundness apply live, persist and survive preset switchi
   await expect(page.locator('#custom-radius-value')).toHaveText('Округлая');
   expect(await page.locator('body').evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(20, 27, 40)');
   expect(await page.locator('.settings-card').first().evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(34, 46, 66)');
-  await expect(page.locator('#add-button')).toHaveCSS('background-color', 'rgb(143, 199, 232)');
+  await expect(page.locator('#browse-button')).toHaveCSS('background-color', 'rgb(143, 199, 232)');
   await page.locator('input[name="theme"][value="cream"]').check();
   await expect(page.locator('#custom-theme-editor')).toBeHidden();
   await page.locator('input[name="theme"][value="custom"]').check();
   await expect(page.locator('#hex-accent')).toHaveValue('#8fc7e8');
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'custom');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await expect(page.locator('#custom-radius')).toHaveValue('34');
@@ -457,7 +454,7 @@ test('custom editor rejects invalid HEX, warns about contrast and can reset', as
   await expect(page.locator('#custom-color-error')).toContainText('#RRGGBB');
   await expect(page.locator('#custom-accent')).toHaveValue('#f2c48f');
   await page.locator('#hex-text').fill('#15171c'); await page.locator('#hex-text').blur();
-  await expect(page.locator('#custom-contrast')).toContainText('низкий контраст');
+  await expect(page.locator('#custom-contrast')).toContainText('исправлен автоматически');
   await page.locator('#reset-custom-theme').click();
   await expect(page.locator('#hex-text')).toHaveValue('#eeeef2');
   await expect(page.locator('#custom-color-error')).toBeEmpty();
@@ -475,7 +472,7 @@ test('manual buffering and interface preferences persist and reset without touch
   await page.locator('#manual-cards').selectOption('12');
   await page.locator('#compact-setting').check(); await page.locator('#hero-setting').uncheck();
   await page.locator('#text-size').fill('120');
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await detailedSettings(page); await expect(page.locator('#manual-buffer')).toHaveValue('45'); await expect(page.locator('#manual-memory')).toHaveValue('64');
   await expect(page.locator('#text-size')).toHaveValue('120');
@@ -592,7 +589,7 @@ test('original audio, studio variants and source/engine changes preserve pause, 
   await closePlayerSettings(page);
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await expect(page.locator('video')).toHaveCount(0);
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.preferences.v1')).watching)).toMatchObject({ audioMode: 'original', engine: 'standard', subtitleVariant: 'Перевод Б', subtitleDelay: 1, subtitleSize: 120, subtitleBackground: false });
 });
 
@@ -602,7 +599,7 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   page.on('console', message => { if (message.type() === 'error' && /width or height is 0|postMessage|removeChild/.test(message.text())) errors.push(message.text()); });
   await open(page); await serveVideo(page);
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd(page);
   await page.locator('#add-form [name=title]').fill('Вечерний просмотр');
   await page.locator('#add-form [name=url]').fill('https://media.example.test/first.webm');
   await page.locator('#add-form [name=audioType]').selectOption('original');
@@ -645,7 +642,7 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   // The library's delayed resize callback must be harmless after disposal.
   await page.waitForTimeout(160);
   expect(errors).toEqual([]);
-  await page.reload();
+  await page.reload(); await legacyLibrary(page);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('У каждого переводчика — свои слова.');
 });
 
@@ -695,7 +692,7 @@ test('AniDB season identity, XML cast, unknown episode membership and manual ann
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
   await page.locator('#anidb-xml').setInputFiles({ name: 'wrong-season.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
   await expect(page.locator('#cast-status')).toContainText('не совпадает');
-  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
   await page.locator('#cast-panel > summary').click(); await castScope(page, 'episode');
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(1);
   await expect(page.locator('#cast-list')).toContainText('Персонаж Б');
@@ -704,13 +701,13 @@ test('AniDB season identity, XML cast, unknown episode membership and manual ann
 test('website player pages can be added without pretending they are direct streams', async ({ page, context }) => {
   await page.addInitScript(() => localStorage.setItem('kadr.preferences.v1', JSON.stringify({ watching: { audioMode: 'original' } })));
   await context.route('https://old.yummyani.me/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Website fixture</title><p>Website player fixture</p>' }));
-  await open(page); await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await open(page); await manualAdd(page);
   await page.locator('#add-form [name=title]').fill('Аниме на Yummyani');
   await page.locator('#add-form [name=kind]').selectOption('web');
   await page.locator('#add-form [name=url]').fill('https://old.yummyani.me/catalog/item/example');
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.preferences.v1')).watching.audioMode)).toBe('original');
-  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Аниме на Yummyani', exact: true }).click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Смотреть: Аниме на Yummyani', exact: true }).click();
   await expect(page.locator('#playback-status')).toContainText('Открой параметры');
   await expect(page.locator('video')).toHaveCount(0);
   const created = context.waitForEvent('page');
@@ -773,7 +770,7 @@ test('AniDB portraits, alternative photo selection, refresh persistence and miss
   await expect(card.locator('.character-photo')).toHaveAttribute('src', alternative);
   await page.locator('#anidb-xml').setInputFiles(file);
   await expect(card.locator('.character-photo')).toHaveAttribute('src', alternative);
-  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
   await page.locator('#cast-panel > summary').click();
   card = page.locator('.cast-card').filter({ has: page.getByRole('heading', { name: 'Тестовый персонаж', exact: true }) });
   await expect(card.locator('.character-photo')).toHaveAttribute('src', alternative);
@@ -833,11 +830,11 @@ test('Fluent palettes have readable semantic colors and OLED survives startup', 
     expect(contrast(palette.accent, palette['accent-ink']), `${theme}: primary button`).toBeGreaterThanOrEqual(4.5);
     if (['night','oled','nord'].includes(theme)) await page.screenshot({ path: `test-results/settings-${theme}.png`, fullPage: true });
   }
-  await page.reload(); await expect(page.locator('html')).toHaveAttribute('data-theme','oled');
+  await page.reload(); await legacyLibrary(page); await expect(page.locator('html')).toHaveAttribute('data-theme','oled');
   await expect(page.locator('body')).toHaveCSS('background-color','rgb(0, 0, 0)');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.screenshot({ path: 'test-results/empty-library.png', fullPage: true });
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd(page);
   await page.locator('#add-dialog').screenshot({ path: 'test-results/add-dialog.png' });
   await page.keyboard.press('Escape'); await expect(page.locator('#add-button')).toBeFocused();
 });
@@ -869,7 +866,7 @@ test('100, 125, 150 and 200 percent display-scale emulation keeps navigation, se
       expect(await page.evaluate(() => devicePixelRatio)).toBe(scale);
       const fits = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await fits();
-      for (const view of ['Избранное','История','Источники','Настройки']) { await page.getByRole('button',{name:view,exact:true}).click(); await fits(); }
+      for (const view of ['Избранное','История','Каталог','Настройки']) { await page.getByRole('button',{name:view,exact:true}).click(); await fits(); }
       for (const theme of ['night','oled','nord','sakura','cream','custom']) { await page.locator(`input[name="theme"][value="${theme}"]`).check(); await fits(); }
       await page.locator('input[name="theme"][value="night"]').check();
       await detailedSettings(page);
@@ -878,7 +875,7 @@ test('100, 125, 150 and 200 percent display-scale emulation keeps navigation, se
       await chooseProfile(page, 'manual'); await fits();
       await page.locator('#settings-basic-tab').click();
       await page.screenshot({path:`test-results/scale-${Math.round(scale*100)}-settings.png`});
-      await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();
+      await manualAdd(page);
       const dialog=await page.locator('#add-dialog').boundingBox();
       expect(dialog.x).toBeGreaterThanOrEqual(0); expect(dialog.y).toBeGreaterThanOrEqual(0);
       expect(dialog.x+dialog.width).toBeLessThanOrEqual(page.viewportSize().width+1); expect(dialog.height).toBeLessThanOrEqual(page.viewportSize().height);
@@ -896,7 +893,7 @@ test('100, 125, 150 and 200 percent display-scale emulation keeps navigation, se
 });
 
 test('small windows, keyboard-only actions and forced colors keep controls reachable', async ({ page }) => {
-  await open(page); await page.setViewportSize({width:640,height:480}); await page.emulateMedia({forcedColors:'active',reducedMotion:'reduce'});
+  await serveCatalog(page); await page.goto('http://127.0.0.1:5173'); await page.setViewportSize({width:640,height:480}); await page.emulateMedia({forcedColors:'active',reducedMotion:'reduce'});
   await page.keyboard.press('Tab'); await expect(page.locator('.skip-link')).toBeFocused(); await page.keyboard.press('Enter'); await expect(page.locator('main')).toBeFocused();
   await page.getByRole('button',{name:'Настройки',exact:true}).focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#settings-view')).toBeVisible();
@@ -935,7 +932,7 @@ test('each anime keeps its own cast context, editable names and note strips acro
   await expect(page.locator('#cast-context')).toHaveText('Второе аниме · Сезон 1');
   await expect(page.locator('.cast-card h3')).toHaveText('Уточнённое имя AniDB'); await expect(note).toHaveValue('');
   await rename('Уточнённое имя AniDB', 'Другое имя'); await note.fill('Заметка второго аниме');
-  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Второе аниме', exact: true }).click(); await page.locator('#cast-panel > summary').click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Смотреть: Второе аниме', exact: true }).click(); await page.locator('#cast-panel > summary').click();
   await expect(page.locator('.cast-card h3')).toHaveText('Другое имя'); await expect(note).toHaveValue('Заметка второго аниме');
   await page.getByRole('button', { name: 'Смотреть: Первое аниме', exact: true }).click();
   await expect(page.locator('.cast-card h3')).toHaveText('Моя героиня'); await expect(note).toHaveValue('Заметка только к первому аниме');
@@ -960,7 +957,7 @@ test('failed personal-note saves keep the draft visible and can be retried', asy
   await page.evaluate(() => window.restoreDetailsStorage());
   await page.locator('.character-note').focus(); await page.locator('.character-note').blur();
   await expect(page.locator('.character-note-status')).toHaveText('Сохранено');
-  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click(); await page.locator('#cast-panel > summary').click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click(); await page.locator('#cast-panel > summary').click();
   await expect(page.locator('.character-note')).toHaveValue('Не потерять эту заметку');
 });
 
@@ -1009,7 +1006,7 @@ test('roundness preview works on hover and keyboard and persists without pixel j
   });
   expect(await page.evaluate(() => window.preferenceWrites)).toBe(0);
   await expect.poll(() => page.evaluate(() => window.preferenceWrites)).toBe(1);
-  await page.reload(); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.reload(); await legacyLibrary(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await expect(page.locator('#custom-radius')).toHaveValue('36');
 });
 

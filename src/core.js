@@ -1,4 +1,4 @@
-import { subtitleEntries, seasonEntries, animeId, languageCode, webPlayerEntries } from './media-schema.js';
+import { subtitleEntries, seasonEntries, animeId, languageCode, webPlayerEntries, catalogIdentity } from './media-schema.js';
 export const MAX_LIBRARY_TITLES = 500;
 export const EXAMPLE_SITES = Object.freeze([
   { id: 'trout', name: 'TroutCDN', url: 'https://g0e-1ka1v5q.troutcdn.site/283290', description: 'Страница из твоего примера · ID 283290' },
@@ -32,9 +32,11 @@ export function validateLibrary(data) {
     if (!title || typeof title.id !== 'string' || !title.id || ids.has(title.id)) throw new Error('У каждого аниме должен быть уникальный id.');
     ids.add(title.id);
     if (typeof title.title !== 'string' || !title.title.trim() || title.title.length > 160) throw new Error('Укажи название аниме, не более 160 символов.');
-    if (!Array.isArray(title.episodes) || !title.episodes.length || title.episodes.length > 500) throw new Error('Нужны серии: от 1 до 500.');
+    const catalog = catalogIdentity(title.catalog);
+    if (!Array.isArray(title.episodes) || !title.episodes.length || title.episodes.length > (catalog ? 2000 : 500)) throw new Error(`Нужны серии: от 1 до ${catalog ? 2000 : 500}.`);
     const episodeIds = new Set();
     const poster = {};
+    if (catalog) poster.catalog = catalog;
     if (title.posterUrl !== undefined && title.posterUrl !== '') {
       if (typeof title.posterUrl !== 'string' || title.posterUrl.length > 2048) throw new Error('Ссылка на постер должна быть не длиннее 2048 символов.');
       poster.posterUrl = httpsURL(title.posterUrl);
@@ -49,9 +51,9 @@ export function validateLibrary(data) {
     return { id: title.id, title: title.title.trim(), ...poster, episodes: title.episodes.map(ep => {
       if (!ep || typeof ep.id !== 'string' || !ep.id || episodeIds.has(ep.id)) throw new Error('У серий должны быть уникальные id внутри аниме.');
       episodeIds.add(ep.id);
-      if (!Number.isInteger(ep.number) || ep.number < 1) throw new Error('Номер серии должен быть положительным целым числом.');
+      if (catalog ? !Number.isFinite(ep.number) || ep.number < 0 : !Number.isInteger(ep.number) || ep.number < 1) throw new Error('Некорректный номер серии.');
       const webPlayers = webPlayerEntries(ep.webPlayers);
-      if (!Array.isArray(ep.sources) || (!ep.sources.length && !webPlayers?.length) || ep.sources.length > 20) throw new Error('У серии нужны прямые источники (до 20) или страницы плееров сайтов.');
+      if (!Array.isArray(ep.sources) || (!ep.sources.length && !webPlayers?.length && !catalog) || ep.sources.length > 20) throw new Error('У серии нужны прямые источники (до 20) или страницы плееров сайтов.');
       const sourceIds = new Set();
       if (ep.season !== undefined && (!Number.isInteger(ep.season) || ep.season < 1 || ep.season > 100)) throw new Error('Номер сезона должен быть от 1 до 100.');
       const sources = ep.sources.map(source => {
@@ -72,7 +74,8 @@ export function validateLibrary(data) {
         }
         return { id: source.id, url, voice: source.voice.trim(), language: languageCode(source.language), quality: source.quality, ...extra };
       });
-      const subtitles = subtitleEntries(ep.subtitles, sourceIds, httpsURL);
+      const trackSources = catalog ? new Set([...sourceIds, ...[480,720,1080].map(quality => `catalog:anilibria:${ep.id}:${quality}`)]) : sourceIds;
+      const subtitles = subtitleEntries(ep.subtitles, trackSources, httpsURL);
       return { id: ep.id, number: ep.number, ...(ep.season !== undefined ? { season: ep.season } : {}), sources, ...(subtitles !== undefined ? { subtitles } : {}), ...(webPlayers !== undefined ? { webPlayers } : {}) };
     }) };
   });

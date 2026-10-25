@@ -13,29 +13,30 @@
   <body>
     <a class="skip-link" href="#content">Перейти к содержимому</a>
     <aside>
-      <button class="brand" id="home-button" aria-label="Yoru — библиотека"><span class="brand-icon" data-icon="moon"></span> yoru<span class="brand-dot" aria-hidden="true"></span></button>
+      <button class="brand" id="home-button" aria-label="Yoru — каталог"><span class="brand-icon" data-icon="moon"></span> yoru<span class="brand-dot" aria-hidden="true"></span></button>
       <p class="eyebrow">ТВОЯ КОЛЛЕКЦИЯ</p>
       <nav aria-label="Разделы">
-        <button data-view="library" class="nav active" aria-current="page" aria-label="Библиотека"><span data-icon="library"></span><span>Библиотека</span><span id="library-count" class="nav-count">0</span></button>
+        <button data-view="catalog" class="nav active" aria-current="page" aria-label="Каталог"><span data-icon="search"></span><span>Каталог</span></button>
+        <button data-view="library" class="nav" aria-label="Библиотека"><span data-icon="library"></span><span>Библиотека</span><span id="library-count" class="nav-count">0</span></button>
         <button data-view="favorites" class="nav" aria-label="Избранное"><span data-icon="heart"></span><span>Избранное</span><span id="favorite-count" class="nav-count">0</span></button>
         <button data-view="history" class="nav" aria-label="История"><span data-icon="history"></span><span>История</span></button>
-        <button data-view="sources" class="nav" aria-label="Источники"><span data-icon="sources"></span><span>Источники</span></button>
         <button data-view="settings" class="nav" aria-label="Настройки"><span data-icon="settings"></span><span>Настройки</span></button>
       </nav>
     </aside>
     <main id="content" tabindex="-1">
-      <header><div class="breadcrumb"><span class="header-dot"></span> Личный кинозал <span>/</span> Аниме</div><div class="header-actions"><button id="import-button" class="quiet" title="Импортировать список серий"><span data-icon="import"></span>Импорт списка</button><button id="add-button" class="primary"><span data-icon="plus"></span> Добавить аниме</button></div></header>
+      <header><div class="breadcrumb"><span class="header-dot"></span> Личный кинозал <span>/</span> Аниме</div><div class="header-actions"><button id="return-player" class="quiet" hidden><span data-icon="play"></span>Вернуться к просмотру</button><button id="browse-button" class="primary"><span data-icon="search"></span> Найти аниме</button></div></header>
       <section class="page-heading"><div><p class="eyebrow">ТВОЁ ПРОСТРАНСТВО</p><h1 id="view-title">Моя библиотека</h1><p id="view-description" class="muted">Любимые истории. На том месте, где ты остановился.</p></div><label id="search-label" class="search"><span data-icon="search"></span><input id="search" type="search" placeholder="Найти в библиотеке" aria-label="Найти в библиотеке"></label></section>
-      <section id="hero" class="hero" aria-labelledby="hero-title">
+      <section id="catalog-view" aria-label="Каталог аниме">
+        <div class="catalog-tools"><label class="catalog-search"><span data-icon="search"></span><input id="catalog-search" type="search" maxlength="100" placeholder="Название аниме — и ты в своей истории" aria-label="Поиск аниме в каталоге" autocomplete="off"><kbd>Ctrl K</kbd></label></div>
+        <div class="catalog-toolbar"><div class="catalog-sorts" role="group" aria-label="Порядок каталога"><button data-catalog-sort="popular" class="selected" aria-pressed="true">Популярное</button><button data-catalog-sort="updated" aria-pressed="false">Обновления</button><button data-catalog-sort="newest" aria-pressed="false">Новинки</button></div><span id="catalog-count" class="muted" role="status"></span></div>
+        <div id="catalog-feedback" class="catalog-feedback" hidden role="status"><span data-icon="info"></span><h2 id="catalog-feedback-title"></h2><p id="catalog-feedback-description"></p><button id="catalog-retry" class="quiet">Повторить</button></div>
+        <div id="catalog-grid" class="catalog-grid" aria-label="Аниме из каталога" aria-busy="false"></div><button id="catalog-more" class="quiet catalog-more" hidden>Показать ещё</button>
+      </section>
+      <section id="hero" class="hero" hidden aria-labelledby="hero-title">
         <div class="hero-copy"><p id="hero-eyebrow" class="eyebrow">ВРЕМЯ ДЛЯ СЕБЯ</p><h2 id="hero-title">Ещё одна серия.<br>Ещё одна история.</h2><p id="hero-description">Собери свой аниме-вечер. Любимые истории, выбранная озвучка и место, к которому хочется вернуться.</p><div class="hero-actions"><button id="hero-button" class="primary"><span data-icon="play"></span><span id="hero-button-label">Собрать библиотеку</span></button><span id="hero-caption">Твоя коллекция — в одном месте</span></div></div>
-        <div class="hero-art" aria-hidden="true"><div id="hero-posters" class="hero-posters"></div><svg class="hero-moon" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/><path d="M79 23A36 36 0 1 0 97 75 35 35 0 0 1 79 23Z"/></svg></div>
+        <div class="hero-art" aria-hidden="true"><div id="hero-posters" class="hero-posters"></div><svg class="hero-moon" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48"/><g transform="translate(20 20) scale(3.333333)"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></g></svg></div>
       </section>
-      <section id="library-view" aria-label="Список аниме"><div class="shelf-toolbar"><p id="result-count" aria-live="polite">0 аниме</p><label class="sort-label">Порядок <select id="sort" aria-label="Сортировка библиотеки"><option value="added">Сначала новые</option><option value="title">По названию</option><option value="recent">Недавно смотрел</option></select></label></div><div id="library-grid" class="grid"></div><button id="load-more" class="quiet" hidden>Показать ещё</button></section>
-      <section id="sources-view" hidden>
-        <div class="notice"><span data-icon="info"></span><div><strong>Сайты пока открываются отдельно</strong><p>Автоматический выбор серий и озвучек на этих сайтах ещё не подключён. Их можно открыть в отдельном окне приложения.</p></div></div>
-        <div id="source-cards" class="grid"></div>
-        <div class="info-box"><h3>Как работает восстановление</h3><p>Для прямых видеоссылок: повторная попытка, затем другой источник той же серии. Выбранное качество сохраняется. При смене озвучки появится сообщение. При полном отказе источников воспроизведение остановится с объяснением.</p><p>Ссылка на страницу сайта не является прямой ссылкой на видео. Для каждого сайта нужен проверенный адаптер.</p></div>
-      </section>
+      <section id="library-view" aria-label="Список аниме" hidden><div class="shelf-toolbar"><p id="result-count" aria-live="polite">0 аниме</p><label class="sort-label">Порядок <select id="sort" aria-label="Сортировка библиотеки"><option value="added">Сначала новые</option><option value="title">По названию</option><option value="recent">Недавно смотрел</option></select></label></div><div id="library-grid" class="grid"></div><button id="load-more" class="quiet" hidden>Показать ещё</button></section>
       <section id="settings-view" hidden aria-label="Настройки приложения">
         <div class="settings-tabs" role="tablist" aria-label="Настройки приложения">
           <button id="settings-basic-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-basic">Основные</button>
@@ -46,7 +47,7 @@
             <div class="settings-section-heading"><span class="settings-orb" data-icon="balance"></span><div><h2 id="performance-title">Как будет работать Yoru</h2><p class="settings-description">Один ползунок — приложение подстроится под твой компьютер.</p></div></div>
             <div class="performance-current"><strong id="performance-name">Качество</strong><span id="performance-description">Чёткое видео, красивые обложки и мягкие анимации.</span></div>
             <label class="sr-only" for="performance-level">Режим работы приложения</label>
-            <input id="performance-level" class="performance-slider" type="range" min="0" max="2" step="1" value="2" aria-describedby="performance-description performance-note">
+            <div id="performance-rail" class="performance-rail"><div class="performance-track" aria-hidden="true"><span class="performance-fill"></span><span class="performance-thumb"></span></div><input id="performance-level" class="performance-slider" type="range" min="0" max="2" step="0.001" value="2" aria-describedby="performance-description performance-note"></div>
             <div class="performance-stops" aria-hidden="true"><span>Производительность</span><span>Баланс</span><span>Качество</span></div>
             <p id="performance-note" class="settings-hint">Оформление меняется сразу. Выбранное видео и озвучка сохраняются.</p>
           </section>
@@ -60,6 +61,7 @@
         </div>
         <div id="custom-theme-editor" class="custom-theme-editor" hidden>
           <div class="custom-editor-heading"><div><h3>Собери своё настроение</h3><p>Выбери любимые цвета. Результат сразу виден в приложении.</p></div><button id="reset-custom-theme" class="quiet" type="button">Вернуть исходные цвета</button></div>
+          <div class="setting-row"><div><label for="custom-comfort">Смягчать яркие фоны</label><p>Исходные цвета сохранятся, а большие поверхности станут спокойнее.</p></div><input id="custom-comfort" class="switch" type="checkbox" role="switch" checked></div>
           <div class="custom-colors">
             <div class="custom-color-field"><label for="custom-background">Фон</label><div><input id="custom-background" type="color" aria-label="Цвет фона"><input id="hex-background" type="text" maxlength="7" spellcheck="false" aria-label="HEX фона" placeholder="#15171c"></div></div>
             <div class="custom-color-field"><label for="custom-panel">Панели</label><div><input id="custom-panel" type="color" aria-label="Цвет панелей"><input id="hex-panel" type="text" maxlength="7" spellcheck="false" aria-label="HEX панелей" placeholder="#20232b"></div></div>
@@ -73,7 +75,7 @@
             <div id="radius-preview" class="radius-preview" role="region" aria-label="Пример скругления" hidden><div class="radius-sample-card"><span data-icon="moon"></span><strong>Твоя следующая история</strong><p>Так будут выглядеть карточки и кнопки в этой теме.</p><span class="primary" aria-hidden="true">Смотреть аниме</span></div></div>
           </div>
           <p id="custom-color-error" role="alert"></p><p id="custom-contrast" role="status" aria-live="polite"></p>
-          <p class="custom-editor-note">Текст на основных кнопках подбирается автоматически. Своя тема сохранится, даже если временно выбрать готовую.</p>
+          <p class="custom-editor-note">Контраст текста и кнопок исправляется автоматически. Своя тема сохранится, даже если временно выбрать готовую.</p>
         </div></section>
         <section id="playback-settings" class="settings-card" aria-labelledby="playback-settings-title"><h2 id="playback-settings-title">Просмотр</h2>
           <div class="setting-row"><div><label for="auto-next-setting">Следующая серия автоматически</label><p>После завершения серии продолжать просмотр по списку.</p></div><input id="auto-next-setting" class="switch" type="checkbox" role="switch"></div>
@@ -111,7 +113,9 @@
           <div class="setting-row"><div><label for="hero-setting">Блок продолжения на главной</label><p>Можно скрыть, чтобы сразу видеть библиотеку.</p></div><input id="hero-setting" type="checkbox" role="switch" class="switch" data-settings-group="interface" data-setting="showHero"></div>
           <div class="setting-row"><div><label for="cinema-setting">Открывать видео в режиме «Кинозал»</label><p>При следующем запуске видео боковые панели будут скрыты.</p></div><input id="cinema-setting" type="checkbox" role="switch" class="switch" data-settings-group="interface" data-setting="cinema"></div>
           <p id="advanced-error" role="alert"></p><button id="reset-advanced" type="button" class="quiet">Сбросить ручные параметры</button><p class="settings-hint">Сброс не удаляет библиотеку, историю, свою тему и выбранное разрешение.</p>
-        </section></div>
+        </section>
+        <section class="settings-card data-tools"><details id="legacy-data"><summary>Свои файлы и перенос библиотеки</summary><p class="settings-description">Для собственных видеоссылок и ранее сохранённых списков. Аниме из каталога открывается без этих действий.</p><div class="dialog-actions"><button id="import-button" class="quiet"><span data-icon="import"></span>Импорт списка</button><button id="add-button" class="quiet"><span data-icon="plus"></span>Открыть свою ссылку</button></div></details></section>
+        </div>
         <div class="settings-bottom"><p>Всё сохраняется автоматически. Изменение настроек не прерывает текущую серию.</p><span id="settings-save-status" role="status" aria-live="polite">Изменения сохраняются автоматически</span></div>
       </section>
       <section id="player-section" hidden>
@@ -141,6 +145,10 @@
       </section>
       <footer><span>Твой прогресс сохраняется на этом устройстве</span><span id="footer-mode">Качество без автоматического снижения · Без скачивания серий</span></footer>
     </main>
+    <dialog id="release-dialog" class="release-dialog" aria-labelledby="release-title">
+      <button id="close-release" class="icon-button release-close" aria-label="Закрыть карточку аниме"><span data-icon="close"></span></button>
+      <div class="release-layout"><div id="release-art" class="release-art"></div><div class="release-content"><p class="eyebrow">ТВОЯ СЛЕДУЮЩАЯ ИСТОРИЯ</p><h2 id="release-title"></h2><p id="release-english" class="muted"></p><p id="release-meta" class="release-meta"></p><div id="release-genres" class="release-genres"></div><p id="release-description" class="release-description"></p><div class="release-voice"><span class="header-dot"></span>Русская озвучка · AniLibria</div><p id="release-progress" class="muted"></p><p id="release-state" role="status"></p><div class="release-actions"><label for="catalog-episode">Серия<select id="catalog-episode"></select></label><button id="catalog-play" class="primary" disabled><span data-icon="play"></span><span id="catalog-play-label">Смотреть</span></button><button id="catalog-favorite" class="icon-button" aria-label="В избранное" title="В избранное" disabled><span data-icon="heart"></span></button></div></div></div>
+    </dialog>
     <dialog id="cast-settings-dialog" aria-labelledby="cast-settings-title">
       <div class="compact-dialog-heading"><div><h2 id="cast-settings-title">Список персонажей</h2><p id="cast-settings-context" class="muted"></p></div><button id="close-cast-settings" class="icon-button" type="button" aria-label="Закрыть настройки персонажей"><span data-icon="close"></span></button></div>
       <p class="muted">Эти настройки нужны, только если персонажей ещё нет или выбран другой список. Имена и заметки меняются прямо на карточках.</p>

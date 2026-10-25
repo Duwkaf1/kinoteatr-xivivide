@@ -1,5 +1,10 @@
 import { subtitleCredit } from './subtitle-credit.js';
 const MAX_TEXT = 2 * 1024 * 1024;
+export function catalogIdentity(value) {
+  if (value === undefined) return undefined;
+  if (!value || value.provider !== 'anilibria' || !Number.isSafeInteger(value.releaseId) || value.releaseId < 1) throw new Error('Некорректная карточка каталога.');
+  return { provider: 'anilibria', releaseId: value.releaseId };
+}
 export const PLAYER_HOSTS = Object.freeze(['old.yummyani.me', 'animejoy.ru', 'brogiro.cfd', 'g0e-1ka1v5q.troutcdn.site']);
 export function webPlayerURL(value) {
   const url = new URL(value);

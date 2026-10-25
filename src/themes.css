@@ -33,12 +33,11 @@
   --shadow: #1c29120a; --notice-bg: #eee9dc; --notice-text: #67522c; --danger: #a33329;
 }
 :root[data-theme="custom"] {
-  --app-bg: var(--custom-background, #15171c); --surface: var(--custom-panel, #20232b); --text: var(--custom-text, #eeeef2);
-  --sidebar-bg: var(--app-bg); --surface-soft: color-mix(in srgb, var(--app-bg) 55%, var(--surface));
-  --surface-raised: color-mix(in srgb, var(--surface) 88%, var(--text)); --muted: color-mix(in srgb, var(--text) 78%, var(--app-bg));
-  --subtle: color-mix(in srgb, var(--text) 66%, var(--app-bg)); --line: color-mix(in srgb, var(--text) 22%, var(--surface));
-  --accent: var(--custom-accent, #f2c48f); --accent-ink: var(--custom-accent-ink, #000); --accent-soft: color-mix(in srgb, var(--accent) 15%, var(--surface));
-  --mint: var(--accent); --shadow: #00000020; --notice-bg: var(--accent-soft); --notice-text: var(--text); --danger: var(--text);
+  --app-bg: var(--custom-safe-background, #15171c); --surface: var(--custom-safe-panel, #20232b);
+  --text: var(--custom-safe-text, #eeeef2); --muted: var(--custom-safe-muted, #bcc0cb); --subtle: var(--muted);
+  --sidebar-bg: var(--app-bg); --surface-soft: var(--custom-safe-soft); --surface-raised: var(--custom-safe-raised); --line: var(--custom-safe-line);
+  --accent: var(--custom-safe-accent); --accent-ink: var(--custom-safe-accent-ink); --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --mint: var(--accent); --shadow: #00000020; --notice-bg: var(--surface-soft); --notice-text: var(--text); --danger: var(--accent);
   --ui-radius: var(--custom-radius, 28px); color-scheme: dark;
 }
 :root[data-theme="custom"][data-custom-scheme="light"] { color-scheme: light; }

@@ -1,4 +1,4 @@
-import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL, MAX_LIBRARY_TITLES, voiceKey } from './core.js';
+import { PlaybackPlan, validateLibrary, httpsURL, MAX_LIBRARY_TITLES, voiceKey } from './core.js';
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
@@ -11,13 +11,15 @@ import { episodeOriginalLanguage } from './watching.js';
 import { settingsControls } from './settings-controls.js';
 import { playbackLoading } from './playback-loading.js';
 import { playbackWatchdog } from './playback-watchdog.js';
+import { catalogView } from './catalog-view.js';
+import { bestCatalogQuality } from './anime-catalog.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
 const state = loaded.state;
 const preferences = loadPreferences();
 let writable = !loaded.error;
-let view = 'library';
+let view = 'catalog';
 let active = null;
 let plan = null;
 let video = null;
@@ -34,6 +36,8 @@ let hlsModule;
 let viewing; let casts;
 let overviewPosters = '';
 let settingsUI;
+let discovery;
+const catalogFreshness = new Map();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const loading = playbackLoading({ host: $('#video-host'), preferences, reducedMotion });
 decorateIcons();
@@ -41,13 +45,14 @@ function applyPreferences() {
   applyCustom(document.documentElement, preferences.custom);
   document.documentElement.dataset.theme = preferences.theme;
   $('#custom-theme-editor').hidden = preferences.theme !== 'custom';
+  $('#custom-comfort').checked = preferences.custom.comfort;
   for (const key of ['background', 'panel', 'text', 'accent']) {
     $(`#custom-${key}`).value = preferences.custom[key];
     if (document.activeElement !== $(`#hex-${key}`)) { $(`#hex-${key}`).value = preferences.custom[key]; $(`#hex-${key}`).removeAttribute('aria-invalid'); }
   }
   settingsUI?.render();
   const ratio = Math.min(contrast(preferences.custom.text, preferences.custom.background), contrast(preferences.custom.text, preferences.custom.panel));
-  $('#custom-contrast').textContent = ratio < 4.5 ? 'У текста низкий контраст с фоном или панелями — его может быть сложно читать. Попробуй более светлый или тёмный цвет.' : 'Контраст основного текста с фоном и панелями достаточный.';
+  $('#custom-contrast').textContent = ratio < 4.5 ? 'Контраст исправлен автоматически. Твои исходные цвета сохранены.' : 'Контраст основного текста с фоном и панелями достаточный.';
   document.body.dataset.profile = preferences.profile;
   document.body.classList.toggle('compact-ui', preferences.interface.compact);
   document.documentElement.style.setProperty('--text-scale', String(preferences.interface.textSize / 100));
@@ -74,6 +79,7 @@ function applyPreferences() {
   $('#auto-next-setting').checked = preferences.autoNext;
   $('#default-quality').value = String(state.quality);
   $('#quality').value = String(active?.quality ?? state.quality);
+  $('#watch-audio-mode').value = active?.watching.audioMode ?? preferences.watching.audioMode;
   document.documentElement.style.setProperty('--subtitle-size', `${24 * preferences.watching.subtitleSize / 100}px`);
   document.documentElement.style.setProperty('--subtitle-bg', preferences.watching.subtitleBackground ? '#000b' : 'transparent');
   for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
@@ -104,6 +110,7 @@ $('#reset-custom-theme').onclick = () => {
   for (const input of document.querySelectorAll('.custom-color-field input[type="text"]')) input.removeAttribute('aria-invalid');
   applyPreferences(); storePreferences();
 };
+$('#custom-comfort').onchange = event => { preferences.custom.comfort = event.target.checked; applyPreferences(); storePreferences(); };
 function selectProfile(profile) {
   preferences.profile = profile;
   // Rendering presets must not select a video resolution missing from a title.
@@ -190,7 +197,7 @@ function updateOverview() {
     $('#hero-button-label').textContent = 'Продолжить просмотр';
     $('#hero-caption').textContent = 'Прогресс сохранён на этом устройстве';
     $('#hero-button').onclick = () => openTitle(recent);
-  } else $('#hero-button').onclick = openAdd;
+  } else { $('#hero-button-label').textContent = 'Открыть каталог'; $('#hero-button').onclick = () => { changeView('catalog'); discovery.focus(); }; }
 }
 
 function renderLibrary() {
@@ -211,8 +218,8 @@ function renderLibrary() {
     const empty = node('div', undefined, 'empty');
     const emptyIcon = node('div', undefined, 'empty-icon'); emptyIcon.append(icon(query ? 'search' : view === 'favorites' ? 'heart' : view === 'history' ? 'history' : 'library'));
     empty.append(emptyIcon, node('h2', query ? 'Ничего не нашлось' : view === 'library' ? 'Здесь начнётся твой следующий сеанс' : view === 'favorites' ? 'Любимые истории будут здесь' : 'История пока пуста'));
-    empty.append(node('p', query ? 'Попробуй другое название.' : view === 'library' ? 'Добавь прямую ссылку на видео или импортируй список серий. Каталоги сайтов пока не подключены.' : 'Открой аниме из библиотеки, чтобы продолжить.'));
-    if (view === 'library' && !query) { const button = node('button', undefined, 'primary'); button.append(icon('plus'), node('span', 'Добавить первое аниме')); button.onclick = openAdd; empty.append(button); }
+    empty.append(node('p', query ? 'Попробуй другое название.' : view === 'library' ? 'Открой каталог, найди свою историю и нажми «Смотреть». Постер и серии появятся автоматически.' : 'Открой аниме, чтобы продолжить.'));
+    if (view === 'library' && !query) { const button = node('button', undefined, 'primary'); button.append(icon('search'), node('span', 'Найти аниме')); button.onclick = () => { changeView('catalog'); discovery.focus(); }; empty.append(button); }
     fragment.append(empty);
   }
   for (const title of titles.slice(0, visibleCount)) {
@@ -258,43 +265,39 @@ function renderLibrary() {
 }
 
 const viewInfo = {
+  catalog: ['Найди свою следующую историю', 'Выбирай аниме, открывай серию и устраивайся поудобнее.'],
+  watch: ['Сейчас смотришь', ''],
   library: ['Моя библиотека', 'Любимые истории. На том месте, где ты остановился.'],
   favorites: ['Избранное', 'Истории, к которым хочется вернуться.'],
   history: ['Продолжить просмотр', 'Каждая история помнит, где ты остановился.'],
-  sources: ['Источники', 'Подключения и их текущий статус.'],
   settings: ['Настройки', 'Уютное оформление и подходящий режим просмотра.'],
 };
-function changeView(next) {
+function changeView(next, focus = true) {
   cancelAnimationFrame(searchTimer); view = next; visibleCount = pageSize();
   for (const item of document.querySelectorAll('[data-view]')) {
-    item.classList.toggle('active', item.dataset.view === view);
-    if (item.dataset.view === view) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
+    const selected = item.dataset.view === (view === 'watch' ? 'catalog' : view);
+    item.classList.toggle('active', selected);
+    if (selected) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
   }
   $('#view-title').textContent = viewInfo[view][0]; $('#view-description').textContent = viewInfo[view][1];
   const libraryVisible = ['library', 'favorites', 'history'].includes(view);
-  $('#sources-view').hidden = view !== 'sources'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
+  $('#catalog-view').hidden = view !== 'catalog'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
   $('#settings-view').hidden = view !== 'settings';
+  $('.page-heading').hidden = view === 'watch';
+  $('#return-player').hidden = !active || view === 'watch';
+  if (active?.title.catalog) $('#player-section').hidden = view !== 'watch';
   $('#hero').hidden = view !== 'library' || !preferences.interface.showHero || preferences.profile === 'economy';
   $('main').scrollTop = 0;
-  $('#view-title').focus({ preventScroll: true });
-  renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : view === 'settings' ? $('#settings-view') : $('#library-view'));
+  if (focus) $('#view-title').focus({ preventScroll: true });
+  if (view === 'catalog') discovery?.activate(); else discovery?.pauseSearch();
+  renderLibrary(); loading.refresh(); reveal(view === 'catalog' ? $('#catalog-view') : view === 'settings' ? $('#settings-view') : view === 'watch' ? $('#player-section') : $('#library-view'));
 }
 for (const button of document.querySelectorAll('[data-view]')) { button.title = button.getAttribute('aria-label'); button.onclick = () => changeView(button.dataset.view); }
-$('#home-button').onclick = () => changeView('library');
+$('#home-button').onclick = () => changeView('catalog');
+$('#browse-button').onclick = () => { changeView('catalog'); discovery.focus(); };
+$('#return-player').onclick = () => changeView('watch');
 $('#load-more').onclick = () => { visibleCount += pageSize(); renderLibrary(); };
 $('#sort').onchange = () => { visibleCount = pageSize(); renderLibrary(); };
-for (const source of EXAMPLE_SITES) {
-  const card = node('article', undefined, 'source-card');
-  const mark = node('div', undefined, 'source-mark'); mark.append(icon('external'));
-  card.append(node('span', 'ТРЕБУЕТ ПРОВЕРКИ', 'badge'), mark, node('h2', source.name), node('p', new URL(source.url).hostname, 'source-host'), node('p', source.description, 'muted'));
-  const open = node('button', undefined, 'quiet'); open.append(node('span', 'Открыть страницу'), icon('external'));
-  open.onclick = async () => {
-    if (window.kadr) {
-      try { await window.kadr.openSource(source.id); } catch { toast('Не удалось открыть окно источника.'); }
-    } else window.open(source.url, '_blank', 'noopener,noreferrer');
-  };
-  card.append(open); $('#source-cards').append(card);
-}
 
 function posterImage(url) {
   const image = node('img', undefined, 'poster-image');
@@ -398,7 +401,7 @@ $('#add-form').onsubmit = event => {
     if (website) { title.episodes[0].sources = []; title.episodes[0].webPlayers = [{ id: 'web-1', label: new URL(url).hostname, url }]; }
     state.titles.push(validateLibrary([title])[0]); const saved = persist();
     if (!website) { preferences.watching.audioMode = original ? 'original' : 'dub'; if (original) preferences.watching.originalLanguage = 'ja'; storePreferences(); applyPreferences(); }
-    $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast(saved ? 'Добавлено в библиотеку.' : 'Аниме добавлено только до закрытия приложения: не удалось сохранить библиотеку.');
+    $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; changeView('library'); toast(saved ? 'Добавлено в библиотеку.' : 'Аниме добавлено только до закрытия приложения: не удалось сохранить библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
 $('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = pageSize(); searchTimer = requestAnimationFrame(renderLibrary); };
@@ -434,38 +437,47 @@ function episodeButtons() {
   $('#episode-list').replaceChildren();
   for (const ep of active.title.episodes) {
     const button = node('button', `${active.title.episodes.some(item => item.season) ? `С${ep.season || 1} · ` : ''}Серия ${ep.number}`, `quiet${ep.id === active.episode.id ? ' selected' : ''}`);
-    button.onclick = () => startEpisode(active.title, ep, 0);
+    button.onclick = () => {
+      if (active.title.catalog && Date.now() - (catalogFreshness.get(active.title.id) || 0) > 300000) discovery.playSaved(active.title, { episodeId: ep.id });
+      else startEpisode(active.title, ep, 0, active.title.catalog ? { quality: bestCatalogQuality(ep, state.quality), audioMode: 'dub' } : {});
+    };
     $('#episode-list').append(button);
   }
   $('#next-button').disabled = active.title.episodes.indexOf(active.episode) === active.title.episodes.length - 1;
 }
 function openTitle(title) {
+  if (title.catalog) { discovery.playSaved(title); return; }
   const progress = Object.hasOwn(state.progress, title.id) ? state.progress[title.id] : null;
   const episode = title.episodes.find(ep => ep.id === progress?.episodeId) ?? title.episodes[0];
   startEpisode(title, episode, progress?.time ?? 0);
 }
 function startEpisode(title, episode, time, session = {}) {
-  recordProgress(true); stopMedia(); active = { title, episode, quality: state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback }, watching: { ...preferences.watching }, session: { paused: false, muted: false, volume: preferences.playback.volume / 100, rate: preferences.playback.speed, ...session } };
+  recordProgress(true); stopMedia(); active = { title, episode, quality: session.quality ?? state.quality, config: profileConfig(preferences.profile, preferences.manual), recovery: { ...preferences.playback }, watching: { ...preferences.watching, ...(session.audioMode ? { audioMode: session.audioMode } : {}) }, session: { paused: false, muted: false, volume: preferences.playback.volume / 100, rate: preferences.playback.speed, ...session } };
   active.watching.originalLanguage = episodeOriginalLanguage(episode, active.quality, session.preferredSourceId);
   resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, { ...active.recovery, ...active.watching, preferredSourceId: session.preferredSourceId });
   $('#player-section').hidden = false;
   $('#playing-title').textContent = `${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
-  $('#quality').value = String(state.quality); $('#retry-button').hidden = true; episodeButtons();
+  $('#quality').value = String(active.quality); $('#watch-audio-mode').value = active.watching.audioMode; $('#retry-button').hidden = true; episodeButtons();
+  for (const option of $('#quality').options) option.disabled = Boolean(title.catalog) && !episode.sources.some(source => source.quality === Number(option.value));
+  for (const option of $('#watch-audio-mode').options) option.disabled = !episode.sources.some(source => option.value === 'original' ? source.audioType === 'original' : source.audioType !== 'original' && source.language === 'ru');
+  $('#return-player').hidden = view === 'watch';
+  Object.defineProperty(state.progress, title.id, { value: { episodeId: episode.id, time, updatedAt: Date.now() }, writable: true, enumerable: true, configurable: true }); persist(true); lastSave = Date.now();
   setFocusMode(preferences.interface.cinema);
   reveal($('#player-section'));
   $('#player-section').scrollIntoView({ behavior: motionEnabled() ? 'smooth' : 'instant', block: 'start' });
   startSource();
   casts?.episodeChanged();
 }
-function restartSource(preferredSourceId = plan?.current?.id) {
+function restartSource(preferredSourceId = plan?.current?.id, quality = active?.quality) {
   if (!active) return;
-  const session = video ? { paused: active.session.paused, muted: video.muted, volume: video.volume, rate: video.playbackRate, preferredSourceId } : { ...active.session, preferredSourceId };
+  const session = video ? { paused: active.session.paused, muted: video.muted, volume: video.volume, rate: video.playbackRate, preferredSourceId, quality } : { ...active.session, preferredSourceId, quality };
   startEpisode(active.title, active.episode, video?.currentTime || resumeAt, session);
 }
 function nextEpisode() {
   if (!active) return;
   const next = active.title.episodes[active.title.episodes.indexOf(active.episode) + 1];
-  if (next) startEpisode(active.title, next, 0);
+  if (next && active.title.catalog && Date.now() - (catalogFreshness.get(active.title.id) || 0) > 300000) discovery.playSaved(active.title, { episodeId: next.id });
+  else if (next) startEpisode(active.title, next, 0, active.title.catalog ? { quality: bestCatalogQuality(next, state.quality), audioMode: 'dub' } : {});
   else status('Все доступные серии просмотрены.');
 }
 
@@ -474,7 +486,7 @@ async function startSource(retryDeadline) {
   const source = plan.current;
   viewing?.sources();
   if (!source) viewing?.subtitles();
-  if (!source) { status(active.episode.webPlayers?.length ? 'Открой параметры и выбери плеер сайта. Серии и перевод выбираются в его окне.' : `Нет источника ${active.watching.audioMode === 'original' ? 'с оригинальной озвучкой' : 'с русской озвучкой'} в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь источник или повтори позже.' : 'Автосмена источника отключена.'}`); $('#retry-button').hidden = false; return; }
+  if (!source) { status(active.title.catalog ? 'Не удалось воспроизвести серию. Нажми «Повторить» — приложение обновит подключение к серверу.' : active.episode.webPlayers?.length ? 'Открой параметры и выбери плеер сайта. Серии и перевод выбираются в его окне.' : `Нет источника ${active.watching.audioMode === 'original' ? 'с оригинальной озвучкой' : 'с русской озвучкой'} в ${active.quality}p. Качество не снижено. ${active.recovery.autoSwitch ? 'Добавь источник или повтори позже.' : 'Автосмена источника отключена.'}`); $('#retry-button').hidden = false; return; }
   const token = generation;
   const targetQuality = active.quality;
   const config = active.config;
@@ -611,14 +623,25 @@ document.addEventListener('keydown', event => {
     if (key === 'arrowright') video.currentTime = Math.min(Number.isFinite(video.duration) ? video.duration : video.currentTime + preferences.playback.seekSeconds, video.currentTime + preferences.playback.seekSeconds);
   }
 });
-$('#close-player').onclick = () => { recordProgress(true); stopMedia(); setFocusMode(false); active = null; plan = null; $('#player-section').hidden = true; renderLibrary(); $('#view-title').focus({ preventScroll: true }); };
+$('#close-player').onclick = () => { recordProgress(true); stopMedia(); setFocusMode(false); active = null; plan = null; $('#player-section').hidden = true; $('#return-player').hidden = true; if (view === 'watch') changeView('catalog'); else renderLibrary(); $('#view-title').focus({ preventScroll: true }); };
 $('#next-button').onclick = nextEpisode;
-$('#retry-button').onclick = () => { if (active) startEpisode(active.title, active.episode, resumeAt); };
-$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); restartSource(); applyPreferences(); };
+$('#retry-button').onclick = () => { if (active?.title.catalog) discovery.playSaved(active.title, { episodeId: active.episode.id }); else if (active) startEpisode(active.title, active.episode, resumeAt); };
+$('#quality').onchange = event => { state.quality = Number(event.target.value); persist(true); restartSource(undefined, state.quality); applyPreferences(); };
 window.addEventListener('beforeunload', () => recordProgress(true));
 window.addEventListener('offline', () => toast('Нет соединения. При недоступности всех источников просмотр приостановится.'));
 window.addEventListener('online', () => { toast('Соединение восстановлено.'); if (active && !plan?.current) startEpisode(active.title, active.episode, resumeAt); });
 viewing = viewingControls({ $, node, preferences, persist, savePreferences: storePreferences, toast, active: () => active, video: () => video, hls: () => hls, currentSource: () => plan?.current, restart: restartSource });
 casts = castPanel({ $, node, active: () => active, persist, toast });
-renderLibrary();
+function retainCatalogTitle(title) {
+  const index = state.titles.findIndex(item => item.id === title.id);
+  if (index < 0) { if (state.titles.length >= MAX_LIBRARY_TITLES) throw new Error('Библиотека заполнена: в ней можно сохранить до 500 аниме.'); state.titles.push(title); }
+  else state.titles[index] = title;
+  return persist();
+}
+discovery = catalogView({ $, node, state, toast,
+  onWatch(title, episode, time, quality) { recordProgress(true); const saved = retainCatalogTitle(title); catalogFreshness.set(title.id, Date.now()); changeView('watch'); startEpisode(title, episode, time, { quality, audioMode: 'dub' }); if (!saved) toast('Просмотр доступен, но прогресс может не сохраниться: проверь свободное место.'); },
+  onFavorite(title) { retainCatalogTitle(title); state.favorites = state.favorites.includes(title.id) ? state.favorites.filter(id => id !== title.id) : [...state.favorites, title.id]; persist(); updateOverview(); },
+});
+document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); changeView('catalog'); discovery.focus(); } });
+changeView('catalog', false);
 if (loaded.error) toast(loaded.error);

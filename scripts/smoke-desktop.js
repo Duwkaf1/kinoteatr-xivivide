@@ -4,6 +4,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { smokeCatalog } from './smoke-catalog.js';
 
 // Uses the real main/preload and built file:// renderer; no development server.
 const require = createRequire(import.meta.url);
@@ -18,8 +19,11 @@ try {
   const page = await application.firstWindow();
   const errors = [];
   page.on('pageerror', error => errors.push(error.stack || error.message));
-  await page.waitForSelector('#hero-button');
+  await application.evaluate(({net})=>{const previous=net.fetch;net.fetch=async(url,options)=>url.includes('/api/v1/anime/catalog/')?new Response(JSON.stringify({data:[],meta:{pagination:{total:0,total_pages:1}}}),{headers:{'Content-Type':'application/json'}}):previous(url,options);});
+  await page.waitForSelector('#hero-button',{state:'attached'});
   await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
+  await page.getByRole('button',{name:'Библиотека',exact:true}).click();
+  const manualAdd = async () => { await page.getByRole('button',{name:'Настройки',exact:true}).click(); await page.locator('#settings-advanced-tab').click(); if(!await page.locator('#legacy-data').evaluate(e=>e.open))await page.locator('#legacy-data > summary').click(); await page.locator('#add-button').click(); };
   assert.ok(page.url().startsWith('file:'));
   assert.equal(await page.title(), 'Yoru — аниме');
   assert.equal(await application.evaluate(({ app }) => app.getName()), 'Yoru');
@@ -46,20 +50,20 @@ try {
   await page.locator('input[name="theme"][value="cream"]').check();
   await page.locator('#performance-level').fill('1'); await page.locator('#settings-advanced-tab').click();
   await page.locator('#default-quality').selectOption('1080');
-  await page.reload();
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'cream' && document.querySelector('#hero-button').onclick !== null);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   assert.equal(await page.locator('#performance-level').inputValue(), '1');
   assert.equal(await page.locator('#default-quality').inputValue(), '1080');
   await page.locator('#settings-basic-tab').click(); await page.locator('input[name="theme"][value="oled"]').check();
-  await page.reload(); await page.waitForFunction(() => document.documentElement.dataset.theme === 'oled' && document.querySelector('#hero-button').onclick !== null);
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click(); await page.waitForFunction(() => document.documentElement.dataset.theme === 'oled' && document.querySelector('#hero-button').onclick !== null);
   assert.equal(await page.locator('body').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(0, 0, 0)');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   for (const zoom of [1, 1.25, 1.5, 2]) {
     await application.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, `Electron layout at ${zoom * 100}%`);
-    await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+    await manualAdd();
     const bounds = await page.locator('#add-dialog').boundingBox();
     assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.width <= await page.evaluate(() => innerWidth) && bounds.height <= await page.evaluate(() => innerHeight));
     await page.keyboard.press('Escape');
@@ -69,13 +73,14 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'Minimum Electron window has no horizontal overflow');
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1320, 900));
   console.log('PASS: OLED startup, Electron zoom 100/125/150/200%, modal bounds and 640x480 layout');
+  await page.locator('#settings-basic-tab').click();
   await page.locator('input[name="theme"][value="custom"]').check();
   await page.locator('#hex-background').fill('#182030');
   await page.locator('#hex-background').blur();
   await page.locator('#custom-radius').fill('32');
   await page.locator('#radius-preview-toggle').click();
   assert.equal(await page.locator('.radius-sample-card').evaluate(element => getComputedStyle(element).borderRadius), '32px');
-  await page.reload();
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'custom' && document.querySelector('#hero-button').onclick !== null);
   assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--custom-background')), '#182030');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
@@ -84,13 +89,13 @@ try {
   await page.locator('#manual-memory').fill('48'); await page.locator('#manual-memory').blur();
   await page.locator('#recovery-attempts').fill('3'); await page.locator('#recovery-attempts').blur();
   await page.locator('#default-volume').fill('55'); await page.locator('#default-speed').selectOption('1.25');
-  await page.reload();
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click();
   await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('#settings-advanced-tab').click(); assert.equal(await page.locator('#manual-memory').inputValue(), '48');
   assert.equal(await page.locator('#recovery-attempts').inputValue(), '3');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
-  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await manualAdd();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проверка desktop');
   await page.getByRole('textbox', { name: 'Ссылка на видео', exact: true }).fill('https://media.example.invalid/desktop.webm');
   await page.locator('#choose-add-poster').click(); await page.locator('#poster-search').fill('Фрирен'); await page.locator('#poster-search-button').click();
@@ -99,7 +104,7 @@ try {
   await page.getByRole('button', { name: 'Сохранить обложку' }).click();
   await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await page.getByRole('heading', { name: 'Проверка desktop', exact: true }).waitFor();
-  await page.reload();
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click();
   await page.getByRole('heading', { name: 'Проверка desktop', exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.artwork img')?.naturalWidth > 0);
   assert.equal(await page.locator('.artwork img').getAttribute('src'), poster.posterUrl);
@@ -114,7 +119,7 @@ try {
     return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: media.subarray(start, end + 1) });
   });
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('#performance-level').fill('2');
+  await page.locator('#settings-basic-tab').click(); await page.locator('#performance-level').fill('2');
   await page.locator('#settings-advanced-tab').click(); await page.locator('#recovery-attempts').fill('1'); await page.locator('#recovery-attempts').blur();
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.waitForFunction(() => getComputedStyle(document.querySelector('.artwork img')).opacity === '1');
@@ -178,7 +183,7 @@ try {
   await page.locator('#open-cast-settings').click(); await page.locator('#anidb-fetch').click(); await page.waitForFunction(() => !document.querySelector('#anidb-fetch').disabled); await page.locator('#done-cast-settings').click();
   assert.equal(await page.locator('.cast-card h3').textContent(), 'Мой персонаж');
   assert.equal(await page.locator('.character-note').inputValue(), 'Моя заметка в настольном приложении');
-  await page.reload(); await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
+  await page.reload(); await page.getByRole('button',{name:'Библиотека',exact:true}).click(); await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
   await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
   await page.locator('#cast-panel > summary').click();
   assert.equal(await page.locator('.cast-card h3').textContent(), 'Мой персонаж');
@@ -234,6 +239,7 @@ try {
   await sourcePage.waitForLoadState('domcontentloaded');
   assert.equal(await sourcePage.evaluate(() => typeof window.kadr), 'undefined');
   assert.equal(await sourcePage.evaluate(() => typeof window.require), 'undefined');
+  await smokeCatalog({application,page,root});
   assert.deepEqual(errors, []);
   const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   console.log(`PASS: Electron ${version}; file renderer, posters, settings, real WebM, Video.js switching/state, real ASS WASM canvas, AniDB IPC/cache/XML and isolated website/AniDB/source windows`);

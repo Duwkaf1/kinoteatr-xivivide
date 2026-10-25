@@ -6,6 +6,7 @@ import { EXAMPLE_SITES } from '../src/core.js';
 import { anidbPage } from '../src/anidb.js';
 import { animeId, webPlayerURL } from '../src/media-schema.js';
 import { boundedText } from '../src/subtitles.js';
+import { requestCatalog } from './catalog-network.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 app.setName('Yoru');
@@ -21,6 +22,7 @@ let mainWindow;
 const sourceWindows = new Map();
 const guardedSessions = new WeakSet();
 const anidbCache = new Map(); let lastAniDBRequest = 0; let aniDBBusy = false; let aniDBBlockedUntil = 0;
+const catalogRequests = new Map();
 function openPlayerPage(key, url, title) {
   const existing = sourceWindows.get(key);
   if (existing && !existing.isDestroyed()) { if (existing.webContents.getURL() !== url) existing.loadURL(url).catch(() => {}); existing.focus(); return; }
@@ -44,6 +46,7 @@ else {
       webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     });
     mainWindow.on('closed', () => {
+      for (const controller of catalogRequests.values()) controller.abort(); catalogRequests.clear();
       mainWindow = null;
       for (const sourceWindow of sourceWindows.values()) sourceWindow.close();
     });
@@ -56,6 +59,19 @@ else {
     const trusted = event => {
       if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Недоступно');
     };
+    ipcMain.handle('catalog:request', async (event, data) => {
+      trusted(event);
+      if (typeof data?.requestId !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(data.requestId) || catalogRequests.has(data.requestId) || catalogRequests.size >= 4) throw new Error('Подожди завершения поиска и попробуй ещё раз.');
+      const controller = new AbortController(); catalogRequests.set(data.requestId, controller);
+      try { return await requestCatalog(data, { fetcher: net.fetch, signal: controller.signal }); }
+      finally { catalogRequests.delete(data.requestId); }
+    });
+    ipcMain.on('catalog:cancel', (event, requestId) => {
+      // A cancellation can arrive while its document is navigating or closing.
+      // One-way IPC must ignore stale frames rather than throw out of a listener.
+      if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) return;
+      if (typeof requestId === 'string') catalogRequests.get(requestId)?.abort();
+    });
     ipcMain.handle('player:open', (event, value) => { trusted(event); const url = webPlayerURL(value); openPlayerPage(new URL(url).hostname, url, `${new URL(url).hostname} · Yoru`); });
     ipcMain.handle('anidb:open', (event, data) => {
       trusted(event);
