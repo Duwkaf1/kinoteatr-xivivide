@@ -1,0 +1,32 @@
+{
+  "mocked": false,
+  "date": "2026-10-25T17:29:46.745Z",
+  "version": "0.8.1",
+  "vantage": "Cloud Linux Electron, not RF ISP",
+  "results": [
+    {
+      "query": "Фрирен",
+      "title": "Провожающая в последний путь Фрирен",
+      "engine": "standard",
+      "time": 61.025027,
+      "width": 1920,
+      "height": 1080,
+      "audioDecodedBytes": 90143
+    },
+    {
+      "query": "Клинок",
+      "title": "Клинок, рассекающий демонов",
+      "engine": "videojs",
+      "time": 61.020064,
+      "width": 1920,
+      "height": 1080,
+      "audioDecodedBytes": 65164
+    }
+  ],
+  "attempting": {
+    "query": "Клинок",
+    "title": "Клинок, рассекающий демонов",
+    "engine": "videojs"
+  },
+  "pageErrors": []
+}

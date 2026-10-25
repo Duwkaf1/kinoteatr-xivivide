@@ -1,0 +1,259 @@
+{
+  "date": "2026-10-25T17:17:34.665Z",
+  "mocked": false,
+  "vantage": "Cloud API requests, not RF playback validation",
+  "evidence": [
+    {
+      "args": {
+        "provider": "anilibria",
+        "kind": "list",
+        "query": "",
+        "page": 1,
+        "sort": "popular",
+        "genres": [
+          15,
+          27
+        ],
+        "age": "R16_PLUS"
+      },
+      "matched": 7,
+      "items": [
+        {
+          "id": 3996,
+          "title": "Боруто: Новое поколение Наруто",
+          "age": "16+",
+          "genres": [
+            "Боевые искусства",
+            "Экшен",
+            "Приключения",
+            "Сёнен",
+            "Супер сила"
+          ]
+        },
+        {
+          "id": 413,
+          "title": "Наруто Ураганные хроники",
+          "age": "16+",
+          "genres": [
+            "Приключения",
+            "Сёнен",
+            "Боевые искусства"
+          ]
+        },
+        {
+          "id": 573,
+          "title": "Заморозка",
+          "age": "16+",
+          "genres": [
+            "Боевые искусства",
+            "Мистика",
+            "Приключения",
+            "Этти"
+          ]
+        }
+      ],
+      "count": 7,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "Фрирен",
+        "page": 1,
+        "sort": "popular",
+        "genres": [
+          15
+        ],
+        "age": "Y3"
+      },
+      "matched": null,
+      "items": [
+        {
+          "id": 10661,
+          "title": "Провожающая в последний путь Фрирен",
+          "age": "13+",
+          "genres": [
+            "Сёнэн",
+            "Драма",
+            "Приключения",
+            "Фэнтези",
+            "Магия",
+            "Целый фэнтези мир",
+            "Эльфы",
+            "Повседневность"
+          ]
+        },
+        {
+          "id": 15084,
+          "title": "Провожающая в последний путь Фрирен 2",
+          "age": "13+",
+          "genres": [
+            "Сёнэн",
+            "Драма",
+            "Приключения",
+            "Фэнтези",
+            "Магия",
+            "Целый фэнтези мир",
+            "Эльфы",
+            "Повседневность"
+          ]
+        },
+        {
+          "id": 27416,
+          "title": "Провожающая в последний путь Фрирен: Золотая земля",
+          "age": "13+",
+          "genres": [
+            "Сёнэн",
+            "Драма",
+            "Приключения",
+            "Фэнтези"
+          ]
+        }
+      ],
+      "count": 3,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "random",
+        "query": "",
+        "page": 1,
+        "sort": "popular",
+        "genres": [
+          15
+        ],
+        "age": "Y3"
+      },
+      "matched": null,
+      "items": [
+        {
+          "id": 6219,
+          "title": "Бей эйс! OVA-2",
+          "age": "13+",
+          "genres": [
+            "Драма",
+            "Экшен",
+            "Спорт"
+          ]
+        }
+      ],
+      "count": 1,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 1,
+        "sort": "updated",
+        "genres": [],
+        "age": ""
+      },
+      "matched": null,
+      "items": [
+        {
+          "id": 11838,
+          "title": "#Компас",
+          "age": "0+",
+          "genres": [
+            "Виртуальная реальность",
+            "Игры"
+          ]
+        },
+        {
+          "id": 11835,
+          "title": "#Компас 2.0: Система анализа боевого промысла",
+          "age": "13+",
+          "genres": [
+            "Приключения",
+            "Игры"
+          ]
+        },
+        {
+          "id": 8520,
+          "title": ".хак//Вернувшийся",
+          "age": "13+",
+          "genres": [
+            "Драма",
+            "Приключения",
+            "Фантастика",
+            "Фэнтези",
+            "Игры"
+          ]
+        }
+      ],
+      "count": 24,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 436,
+        "sort": "newest",
+        "genres": [],
+        "age": ""
+      },
+      "matched": null,
+      "items": [],
+      "count": 0,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 80,
+        "sort": "popular",
+        "genres": [],
+        "age": ""
+      },
+      "count": 0,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 100,
+        "sort": "popular",
+        "genres": [],
+        "age": ""
+      },
+      "count": 0,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 200,
+        "sort": "popular",
+        "genres": [],
+        "age": ""
+      },
+      "count": 0,
+      "warnings": []
+    },
+    {
+      "args": {
+        "provider": "yummyani",
+        "kind": "list",
+        "query": "",
+        "page": 300,
+        "sort": "popular",
+        "genres": [],
+        "age": ""
+      },
+      "count": 0,
+      "warnings": []
+    }
+  ]
+}

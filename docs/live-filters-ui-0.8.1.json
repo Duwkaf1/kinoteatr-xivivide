@@ -1,0 +1,36 @@
+{
+  "attempts": [
+    {
+      "mocked": false,
+      "date": "2026-10-25T17:20:44.189Z",
+      "vantage": "Linux Electron through inherited proxy, not RF ISP",
+      "initialCards": 24,
+      "filteredCount": "20 найдено",
+      "randomTitle": "Теккен: Узы крови",
+      "randomMetadata": "16+ · 2022 · ОNA · 6 серий · Рейтинг 7.1",
+      "randomGenres": "Боевые искусстваПриключенияФантастикаЭкшен",
+      "expandedCards": 24,
+      "websiteURL": "https://old.yummyani.me/catalog/item/provozhayushchaya-posledniy-put-friren",
+      "websiteTitle": "Провожающая в последний путь Фрирен — смотреть аниме онлайн бесплатно на YummyAnime | Ями Аниме",
+      "isolated": true,
+      "pageErrors": []
+    },
+    {
+      "mocked": false,
+      "date": "2026-10-25T17:26:20.273Z",
+      "vantage": "Linux Electron through inherited proxy, not RF ISP",
+      "initialCards": 24,
+      "filteredCount": "20 найдено",
+      "randomTitle": "Удар Вивид!",
+      "randomMetadata": "16+ · 2016 · ТВ · 12 серий · Рейтинг 7.34",
+      "randomGenres": "Боевые искусстваЭкшен",
+      "expandedCards": 24,
+      "error": "page.waitForLoadState: Timeout 20000ms exceeded."
+    }
+  ],
+  "limitations": [
+    "Second live website load did not reach DOMContentLoaded within 20 seconds.",
+    "Yummyani poster CDN static.yani.tv rejected by environment CONNECT proxy with HTTP 403.",
+    "Opening a website does not prove third-party player playback."
+  ]
+}
