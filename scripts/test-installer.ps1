@@ -34,12 +34,17 @@ public static class InstallerUI {
     [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, EnumCallback callback, IntPtr state);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowTextW(IntPtr window, StringBuilder text, int count);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetClassNameW(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
     [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
     private static string Text(IntPtr window) { var text = new StringBuilder(512); GetWindowTextW(window, text, text.Capacity); return text.ToString(); }
-    private static bool Matches(IntPtr window, string name) { return Text(window).Replace("&", "").Trim() == name; }
+    private static bool Matches(IntPtr window, string name) {
+        var className = new StringBuilder(64); GetClassNameW(window, className, className.Capacity);
+        // Progress labels can also say "Готово". Only activate actual buttons.
+        return className.ToString() == "Button" && Text(window).Replace("&", "").Trim() == name;
+    }
     public static IntPtr Control(IntPtr parent, string name) {
         IntPtr result = IntPtr.Zero;
         EnumChildWindows(parent, (window, state) => {

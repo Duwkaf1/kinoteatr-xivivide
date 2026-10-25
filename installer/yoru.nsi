@@ -46,6 +46,9 @@ Var HeadingFont
 Var IconHandle
 
 Function .onInit
+  ; Move directly from completed extraction to our custom finish page, matching
+  ; the behavior normally configured by MUI_PAGE_FINISH.
+  SetAutoClose true
   ${IfNot} ${RunningX64}
     MessageBox MB_OK|MB_ICONSTOP "Для Yoru нужна 64-разрядная Windows 10 или 11."
     SetErrorLevel 1
