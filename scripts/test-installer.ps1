@@ -22,13 +22,43 @@ New-Item -ItemType Directory -Force $profileDir | Out-Null
 $sentinel = Join-Path $profileDir "installer-test-$([guid]::NewGuid()).txt"
 $savedData = 'Библиотека, заметки и собственная тема — сохранить.'
 [IO.File]::WriteAllText($sentinel, $savedData)
-$shell = New-Object -ComObject WScript.Shell
 Add-Type @'
 using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 public static class InstallerUI {
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    private class ShellLinkObject {}
+    [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLinkW {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int capacity, IntPtr findData, uint flags);
+        void GetIDList(out IntPtr list);
+        void SetIDList(IntPtr list);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int capacity);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string value);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int capacity);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string value);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int capacity);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string value);
+        void GetHotkey(out short value);
+        void SetHotkey(short value);
+        void GetShowCmd(out int value);
+        void SetShowCmd(int value);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int capacity, out int index);
+    }
+    public static string[] ReadShortcut(string file) {
+        // The legacy WScript.Shell getter loses Cyrillic characters on an
+        // English Windows locale. Read the actual UTF-16 Shell Link interface.
+        var link = (IShellLinkW)new ShellLinkObject();
+        try {
+            ((System.Runtime.InteropServices.ComTypes.IPersistFile)link).Load(file, 0);
+            var target = new StringBuilder(32768); var icon = new StringBuilder(32768); int index;
+            link.GetPath(target, target.Capacity, IntPtr.Zero, 4);
+            link.GetIconLocation(icon, icon.Capacity, out index);
+            return new[] { target.ToString(), icon.ToString(), index.ToString() };
+        } finally { Marshal.FinalReleaseComObject(link); }
+    }
     private delegate bool EnumCallback(IntPtr window, IntPtr state);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumCallback callback, IntPtr state);
     [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, EnumCallback callback, IntPtr state);
@@ -111,12 +141,11 @@ function Assert-Installed($directory) {
     Assert-True ($registration.InstallLocation -eq $directory) 'Incorrect installed directory'
     foreach ($link in @($desktopLink, $startLink)) {
         Assert-True (Test-Path $link) "Missing shortcut: $link"
-        $shortcut = $shell.CreateShortcut($link)
+        $shortcut = [InstallerUI]::ReadShortcut($link)
         $expectedTarget = [InstallerUI]::LongPath((Join-Path $directory 'Yoru.exe'))
-        $actualTarget = [InstallerUI]::LongPath($shortcut.TargetPath)
+        $actualTarget = [InstallerUI]::LongPath($shortcut[0])
         Assert-True ($actualTarget -eq $expectedTarget) "Shortcut targets wrong application: $link -> '$actualTarget', expected '$expectedTarget'"
-        $iconParts = $shortcut.IconLocation -split ',(?=-?\d+$)', 2
-        Assert-True ($iconParts.Count -eq 2 -and $iconParts[1] -eq '0' -and [InstallerUI]::LongPath($iconParts[0]) -eq $expectedTarget) "Shortcut uses wrong icon: $($shortcut.IconLocation)"
+        Assert-True ($shortcut[2] -eq '0' -and [InstallerUI]::LongPath($shortcut[1]) -eq $expectedTarget) "Shortcut uses wrong icon: $($shortcut[1]),$($shortcut[2])"
     }
     Assert-True ([IO.File]::ReadAllText($sentinel) -eq $savedData) 'Personal profile was altered'
 }
@@ -204,5 +233,4 @@ try {
     Write-Host 'PASS: Unicode path with spaces; install, shortcuts and uninstall'
 } finally {
     Remove-Item $sentinel -ErrorAction SilentlyContinue
-    [Runtime.InteropServices.Marshal]::ReleaseComObject($shell) | Out-Null
 }
