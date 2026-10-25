@@ -36,7 +36,7 @@ for(const engine of ['standard','videojs']){
     }finally{release();}
   });
 
-  test(`${engine}: selected studio keeps its aliases first, then the priority list; reload keeps season, timing and sound`,async({page})=>{
+  test(`${engine}: selected studio and sound survive failover; reload keeps season and timing`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));const requests=[];
     await seed(page,title([source('dub'),source('lib-failed','AniLiberty'),source('lib-backup','AniLibria.TV'),source('foreign','English',{language:'en'}),source('low','AniDUB',{quality:720})]),engine,{attempts:1});
     await page.route(`${origin}/**`,route=>{const name=new URL(route.request().url()).pathname;requests.push(name);return name==='/lib-failed.mp4'?route.fulfill({status:503,body:'Unavailable'}):fulfill(route);});
