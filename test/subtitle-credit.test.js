@@ -20,6 +20,7 @@ test('imported credits and unknown authors persist as safe human labels', () => 
   const check = item => validateLibrary([{...title,episodes:[{...title.episodes[0],subtitles:[item]}]}])[0].episodes[0].subtitles[0];
   assert.equal(check(track).label,'Имя переводчика');
   assert.equal(check({...track,translator:'Другая команда'}).label,'Другая команда');
+  assert.equal(check({...track,label:'Старая\nподпись'}).label,'Старая\nподпись');
   assert.equal(check({...track,content:'[Script Info]\n[Events]'}).label,'Переводчик не указан');
   assert.throws(()=>check({...track,translator:'x'.repeat(121)}));
   assert.throws(()=>check({...track,studio:'Bad\u0000Name'}));

@@ -26,7 +26,7 @@ export function subtitleEntries(value, sourceIds, safeURL) {
   return value.map(track => {
     if (!track || typeof track.id !== 'string' || !track.id || ids.has(track.id)) throw new Error('У субтитров должны быть уникальные id.');
     ids.add(track.id);
-    for (const key of ['translator', 'studio', 'label']) if (track[key] !== undefined && (typeof track[key] !== 'string' || track[key].length > 120 || /[\u0000-\u001f\u007f]/.test(track[key]))) throw new Error('Имя переводчика или название команды — до 120 символов.');
+    for (const key of ['translator', 'studio', 'label']) if (track[key] !== undefined && (typeof track[key] !== 'string' || track[key].length > 120 || key !== 'label' && /[\u0000-\u001f\u007f]/.test(track[key]))) throw new Error('Имя переводчика или название команды — до 120 символов.');
     if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/i.test(track.language || '')) throw new Error('Укажи язык субтитров: например ru, en или ja.');
     if (!['vtt', 'srt', 'ass', 'ssa'].includes(track.format)) throw new Error('Поддерживаются субтитры VTT, SRT, ASS и SSA.');
     const entry = { id: track.id, label: subtitleCredit(track), language: languageCode(track.language), format: track.format };
