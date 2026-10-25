@@ -9,7 +9,7 @@ export const PROFILES = Object.freeze({
 });
 const KEY = 'kadr.preferences.v1';
 export const defaultManual = () => ({ bufferSeconds: 20, backBufferSeconds: 5, memoryMB: 24, cardsPerPage: 24 });
-export const defaultPlayback = () => ({ attempts: 2, timeoutSeconds: 15, autoSwitch: true, voicePriority: 'anidub', allowOtherRussian: true, volume: 100, speed: 1, seekSeconds: 10, shortcuts: true });
+export const defaultPlayback = () => ({ recoveryVersion: 1, attempts: 2, timeoutSeconds: 30, autoSwitch: true, voicePriority: 'anidub', allowOtherRussian: true, volume: 100, speed: 1, seekSeconds: 10, shortcuts: true });
 export const defaultInterface = () => ({ textSize: 100, compact: false, showHero: true, cinema: false });
 export const defaultPreferences = () => ({ theme: 'night', profile: 'quality', animations: true, autoNext: true, custom: { ...DEFAULT_CUSTOM }, manual: defaultManual(), playback: defaultPlayback(), interface: defaultInterface(), watching: defaultWatching() });
 const bounded = (value, fallback, min, max) => Number.isFinite(value) ? Math.min(max, Math.max(min, Math.round(value))) : fallback;
@@ -21,7 +21,7 @@ export function validateManual(input = {}) {
 }
 export function validatePlayback(input = {}) {
   const value = input && typeof input === 'object' ? input : {};
-  return { attempts: bounded(value.attempts, 2, 1, 5), timeoutSeconds: bounded(value.timeoutSeconds, 15, 5, 60), autoSwitch: flag(value.autoSwitch, true), voicePriority: value.voicePriority === 'anilibria' ? 'anilibria' : 'anidub', allowOtherRussian: flag(value.allowOtherRussian, true), volume: bounded(value.volume, 100, 0, 100), speed: [0.75, 1, 1.25, 1.5, 2].includes(value.speed) ? value.speed : 1, seekSeconds: [5, 10, 15, 30].includes(value.seekSeconds) ? value.seekSeconds : 10, shortcuts: flag(value.shortcuts, true) };
+  return { recoveryVersion: 1, attempts: bounded(value.attempts, 2, 1, 5), timeoutSeconds: bounded(value.timeoutSeconds, 30, 5, 60), autoSwitch: flag(value.autoSwitch, true), voicePriority: value.voicePriority === 'anilibria' ? 'anilibria' : 'anidub', allowOtherRussian: flag(value.allowOtherRussian, true), volume: bounded(value.volume, 100, 0, 100), speed: [0.75, 1, 1.25, 1.5, 2].includes(value.speed) ? value.speed : 1, seekSeconds: [5, 10, 15, 30].includes(value.seekSeconds) ? value.seekSeconds : 10, shortcuts: flag(value.shortcuts, true) };
 }
 export function validatePreferences(input) {
   const value = input && typeof input === 'object' ? input : {};
@@ -40,7 +40,12 @@ export function validatePreferences(input) {
 export function loadPreferences(storage = localStorage) {
   try {
     const saved = storage.getItem(KEY);
-    return saved ? validatePreferences(JSON.parse(saved)) : { ...defaultPreferences(), animations: storage.getItem('kadr.less-motion') !== 'true' };
+    if (!saved) return { ...defaultPreferences(), animations: storage.getItem('kadr.less-motion') !== 'true' };
+    const value = JSON.parse(saved);
+    // Upgrade the previous standard waiting period once. Other saved values,
+    // and a newly chosen 15-second period, remain user-controlled.
+    if (value?.playback?.recoveryVersion === undefined && value?.playback?.timeoutSeconds === 15) value.playback.timeoutSeconds = 30;
+    return validatePreferences(value);
   } catch { return defaultPreferences(); }
 }
 export function savePreferences(value, storage = localStorage) { storage.setItem(KEY, JSON.stringify(validatePreferences(value))); }

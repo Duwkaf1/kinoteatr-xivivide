@@ -1,4 +1,4 @@
-import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL, MAX_LIBRARY_TITLES } from './core.js';
+import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL, MAX_LIBRARY_TITLES, voiceKey } from './core.js';
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
@@ -10,6 +10,7 @@ import { languageCode } from './media-schema.js';
 import { episodeOriginalLanguage } from './watching.js';
 import { settingsControls } from './settings-controls.js';
 import { playbackLoading } from './playback-loading.js';
+import { playbackWatchdog } from './playback-watchdog.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -22,8 +23,6 @@ let plan = null;
 let video = null;
 let hls = null;
 let generation = 0;
-let stallTimer;
-let loadingTimer;
 let cleanup = () => {};
 let toastTimer;
 let resumeAt = 0;
@@ -422,8 +421,6 @@ $('#import-file').onchange = async event => {
 function stopMedia() {
   loading.hide();
   generation++;
-  clearTimeout(stallTimer);
-  clearTimeout(loadingTimer);
   // libass needs the video parent while removing its canvas. Dispose subtitles
   // before aborting Video.js, which removes the video element from the DOM.
   viewing?.stop();
@@ -472,7 +469,7 @@ function nextEpisode() {
   else status('Все доступные серии просмотрены.');
 }
 
-async function startSource() {
+async function startSource(retryDeadline) {
   stopMedia();
   const source = plan.current;
   viewing?.sources();
@@ -491,43 +488,42 @@ async function startSource() {
   const listeners = [];
   const on = (name, fn) => { element.addEventListener(name, fn); listeners.push([name, fn]); };
   const request = new AbortController(); let alternate;
-  cleanup = () => { for (const [name, fn] of listeners) element.removeEventListener(name, fn); request.abort(); };
-  viewing?.attach(element);
+  cleanup = () => { watchdog.dispose(); for (const [name, fn] of listeners) element.removeEventListener(name, fn); request.abort(); };
   let recovering = false;
   let switching = false;
   let initialized = false;
   status(`${source.voice} · ${source.quality}p · попытка ${plan.attempt}/${plan.maxAttempts}`);
-  const fail = () => {
+  const fail = ({ skipRetries = false } = {}) => {
     if (token !== generation || recovering) return;
     recovering = true;
     resumeAt = Math.max(resumeAt, element.currentTime || 0); recordProgress(true);
     const oldVoice = source.voice;
-    const next = plan.fail();
-    if (next && oldVoice !== next.voice) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}.`);
-    startSource();
+    plan.updateSources(active.episode.sources, active.quality, { ...active.recovery, ...active.watching });
+    const next = plan.fail({ skipRetries });
+    if (next && voiceKey(oldVoice) !== voiceKey(next.voice)) toast(`Озвучка ${oldVoice} недоступна. Переключаю на ${next.voice}.`);
+    startSource(next?.id === source.id ? watchdog.deadline : undefined);
   };
-  const watchdog = () => {
-    clearTimeout(stallTimer);
-    if (!element.paused && !element.ended && token === generation) { loading.show(); stallTimer = setTimeout(fail, timeoutMs); }
+  const watchdog = playbackWatchdog({ timeoutMs, initialTime: resumeAt, deadlineAt: retryDeadline, onTimeout: () => fail({ skipRetries: true }) });
+  const waiting = () => {
+    if (!active.session.paused && !element.ended && token === generation) { loading.show(); watchdog.start(); }
   };
-  loadingTimer = setTimeout(fail, timeoutMs);
-  on('waiting', watchdog); on('stalled', watchdog);
-  on('playing', () => { loading.hide(); clearTimeout(stallTimer); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
-  on('pause', () => { loading.hide(); active.session.paused = true; clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); if (!element.ended && element.readyState >= 1) status(`${source.voice} · ${source.quality}p · пауза`); recordProgress(true); });
-  on('play', () => { active.session.paused = false; watchdog(); });
+  watchdog.start(); viewing?.attach(element);
+  on('waiting', waiting); on('stalled', waiting);
+  on('playing', () => { loading.hide(); watchdog.start(); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
+  on('pause', () => { loading.hide(); if (!element.error && !element.ended) { active.session.paused = true; watchdog.pause(); } document.body.classList.remove('is-playing'); if (!element.ended && element.readyState >= 1) status(`${source.voice} · ${source.quality}p · пауза`); recordProgress(true); });
+  on('play', () => { active.session.paused = false; waiting(); });
   on('volumechange', () => { if (initialized) { active.session.volume = element.volume; active.session.muted = element.muted; } });
   on('ratechange', () => { if (initialized) active.session.rate = element.playbackRate; });
   on('timeupdate', () => {
     if (!element.seeking && element.currentTime > resumeAt) resumeAt = element.currentTime;
-    if (element.readyState >= 3) clearTimeout(stallTimer);
+    if (initialized && !element.paused && !element.seeking) watchdog.progress(element.currentTime);
     recordProgress();
   });
-  on('seeked', () => { resumeAt = element.currentTime; recordProgress(true); });
-  on('ended', () => { recordProgress(true); if (preferences.autoNext) nextEpisode(); else status('Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
+  on('seeked', () => { resumeAt = element.currentTime; watchdog.seek(resumeAt); recordProgress(true); });
+  on('ended', () => { watchdog.pause(); recordProgress(true); if (preferences.autoNext) nextEpisode(); else status('Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
-    clearTimeout(loadingTimer);
-    if (active.session.paused) loading.hide();
+    if (active.session.paused) { watchdog.pause(); loading.hide(); }
     configure();
     if (alternate) { alternate.volume(active.session.volume); alternate.muted(active.session.muted); alternate.playbackRate(active.session.rate); }
     initialized = true;
@@ -542,7 +538,7 @@ async function startSource() {
     }
     if (resumeAt > 0) element.currentTime = Number.isFinite(element.duration) ? Math.min(resumeAt, Math.max(0, element.duration - 0.5)) : resumeAt;
     if (active.session.paused) status(`${source.voice} · ${source.quality}p · пауза`);
-    else element.play().catch(() => { if (token === generation) { loading.hide(); status('Нажми ▶ в плеере, чтобы начать просмотр.'); } });
+    else element.play().catch(() => { if (token === generation) { watchdog.pause(); loading.hide(); status('Нажми ▶ в плеере, чтобы начать просмотр.'); } });
   });
   if (active.watching.engine === 'videojs') {
     try {
@@ -560,9 +556,9 @@ async function startSource() {
   } else if (/\.m3u8(?:$|\?)/i.test(source.url)) {
     let Hls;
     try { hlsModule ??= import('hls.js'); Hls = (await hlsModule).default; }
-    catch { hlsModule = null; if (token === generation) { clearTimeout(loadingTimer); loading.hide(); status('Не удалось подготовить потоковое видео. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
+    catch { hlsModule = null; if (token === generation) { watchdog.pause(); loading.hide(); status('Не удалось подготовить потоковое видео. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
     if (token !== generation) return;
-    if (!Hls.isSupported()) { clearTimeout(loadingTimer); loading.hide(); status('Потоковое видео не поддерживается. Выбери альтернативный плеер или обычный видеофайл.'); $('#retry-button').hidden = false; return; }
+    if (!Hls.isSupported()) { watchdog.pause(); loading.hide(); status('Потоковое видео не поддерживается. Выбери альтернативный плеер или обычный видеофайл.'); $('#retry-button').hidden = false; return; }
     hls = new Hls({ autoStartLoad: false, maxBufferLength: config.maxBufferLength, maxMaxBufferLength: config.maxMaxBufferLength, backBufferLength: config.backBufferLength, maxBufferSize: config.maxBufferSize, enableWorker: true,
       manifestLoadPolicy: { default: { maxTimeToFirstByteMs: timeoutMs, maxLoadTimeMs: timeoutMs, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });

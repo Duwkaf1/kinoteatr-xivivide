@@ -62,3 +62,20 @@ test('playback updates do not serialize/rewrite library and restore from older l
   assert.equal(loadState(storage).state.progress.anime.time, 42);
   assert.deepEqual(loadState(storage).state.favorites, ['anime']);
 });
+
+test('selected studio exhausts all providers before the saved priority list, including studio aliases', () => {
+  const sources = [source('dub'),source('lib-a','AniLibria.TV'),source('other-a','Другая'),source('lib-b','AniLiberty'),source('other-b','Другая')];
+  assert.deepEqual(rankSources(sources,1080,{preferredSourceId:'lib-b'}).map(s=>s.id),['lib-b','lib-a','dub','other-a','other-b']);
+  assert.deepEqual(rankSources(sources,1080,{preferredSourceId:'other-a',voicePriority:'anilibria'}).map(s=>s.id),['other-a','other-b','lib-a','lib-b','dub']);
+  const plan = new PlaybackPlan(sources,1080,{preferredSourceId:'lib-b',attempts:5});
+  assert.equal(plan.fail({skipRetries:true}).id,'lib-a');assert.equal(plan.attempt,1);
+  assert.equal(plan.fail({skipRetries:true}).id,'dub');
+});
+
+test('providers added during playback enter failover without retrying exhausted or forbidden sources', () => {
+  const plan = new PlaybackPlan([source('a'),source('lib','AniLibria')],1080,{attempts:1});
+  plan.updateSources([source('a'),source('lib','AniLibria'),source('new'),source('foreign','AniDUB','en'),source('low','AniDUB','ru',720)],1080);
+  assert.equal(plan.fail().id,'new');
+  plan.updateSources([source('a'),source('lib','AniLibria'),source('new')],1080);
+  assert.equal(plan.fail().id,'lib');assert.equal(plan.fail(),null);
+});

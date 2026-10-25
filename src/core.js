@@ -13,10 +13,15 @@ export function httpsURL(value) {
   return url.href;
 }
 
+export function voiceKey(voice) {
+  const name = voice.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  if (['anilibria', 'anilibriatv', 'aniliberty'].includes(name)) return 'anilibria';
+  return name;
+}
 export function voiceRank(voice) {
-  const name = voice.toLowerCase().replace(/[^a-zа-яё0-9]/g, '');
+  const name = voiceKey(voice);
   if (name === 'anidub') return 0;
-  if (['anilibria', 'anilibriatv', 'aniliberty'].includes(name)) return 1;
+  if (name === 'anilibria') return 1;
   return 2;
 }
 
@@ -75,12 +80,23 @@ export function validateLibrary(data) {
 
 export function rankSources(sources, quality, options = {}) {
   const priority = voice => { const rank = voiceRank(voice); return options.voicePriority === 'anilibria' && rank < 2 ? 1 - rank : rank; };
-  return sources.filter(s => s.quality === quality && (options.audioMode === 'original'
+  const ordered = sources.filter(s => s.quality === quality && (options.audioMode === 'original'
     ? s.audioType === 'original' && languageCode(s.language) === languageCode(options.originalLanguage || 'ja')
     : s.language === 'ru' && s.audioType !== 'original' && (options.allowOtherRussian !== false || voiceRank(s.voice) < 2)))
     .map((source, index) => ({ source, index }))
-    .sort((a, b) => Number(b.source.id === options.preferredSourceId) - Number(a.source.id === options.preferredSourceId) || (options.audioMode === 'original' ? 0 : priority(a.source.voice) - priority(b.source.voice)) || a.index - b.index)
+    .sort((a, b) => (options.audioMode === 'original' ? 0 : priority(a.source.voice) - priority(b.source.voice)) || a.index - b.index)
     .map(item => item.source);
+  const preferred = ordered.find(source => source.id === options.preferredSourceId) || ordered[0];
+  const groups = new Map();
+  if (preferred) groups.set(voiceKey(preferred.voice), []);
+  for (const source of ordered) {
+    const key = voiceKey(source.voice);
+    if (!groups.has(key)) groups.set(key, []);
+    if (source === preferred) groups.get(key).unshift(source);
+    else groups.get(key).push(source);
+  }
+  // Exhaust providers of the selected studio before changing the translation.
+  return [...groups.values()].flat();
 }
 
 // Bounded attempts; exact selected quality and explicit Russian audio always apply.
@@ -93,9 +109,16 @@ export class PlaybackPlan {
     this.attempt = 1;
   }
   get current() { return this.sources[this.index] ?? null; }
-  fail() {
+  updateSources(sources, quality, options = {}) {
+    const current = this.current; if (!current) return;
+    const past = this.sources.slice(0, this.index);
+    const used = new Set([...past.map(source => source.id), current.id]);
+    const remaining = options.autoSwitch === false ? [] : rankSources(sources, quality, { ...options, preferredSourceId: current.id }).filter(source => !used.has(source.id));
+    this.sources = [...past, current, ...remaining];
+  }
+  fail({ skipRetries = false } = {}) {
     if (!this.current) return null;
-    if (this.attempt < this.maxAttempts) this.attempt++;
+    if (!skipRetries && this.attempt < this.maxAttempts) this.attempt++;
     else { this.index++; this.attempt = 1; }
     return this.current;
   }

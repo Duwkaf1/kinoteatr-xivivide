@@ -1,5 +1,9 @@
 import { animeId } from './media-schema.js';
 import { anidbImage, validateCharacterPhoto } from './character-photos.js';
+export function characterRole(role) {
+  const known = { 'main character in': { label: 'Главный персонаж', rank: 0 }, 'secondary cast in': { label: 'Второстепенный персонаж', rank: 1 }, 'appears in': { label: 'Эпизодическая роль', rank: 2 } };
+  return Object.hasOwn(known, role) ? known[role] : { label: 'Персонаж', rank: 3 };
+}
 export function anidbReleaseId(value) {
   const text = String(value).trim();
   if (/^\d+$/.test(text)) return animeId(Number(text));

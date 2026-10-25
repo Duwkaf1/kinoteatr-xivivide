@@ -105,7 +105,7 @@ try {
   assert.equal(await page.locator('.artwork img').getAttribute('src'), poster.posterUrl);
   const media = await readFile(path.join(root, 'test/fixtures/tone.webm'));
   let releaseVideo; const videoGate = new Promise(resolve => { releaseVideo = resolve; });
-  await page.route('https://media.example.invalid/desktop.webm', async route => {
+  await page.route('https://media.example.invalid/desktop*.webm', async route => {
     await videoGate;
     const match = route.request().headers().range?.match(/^bytes=(\d+)-(\d*)$/);
     const start = match ? Number(match[1]) : 0; const end = match?.[2] ? Math.min(Number(match[2]), media.length - 1) : media.length - 1;
@@ -115,6 +115,7 @@ try {
   });
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('#performance-level').fill('2');
+  await page.locator('#settings-advanced-tab').click(); await page.locator('#recovery-attempts').fill('1'); await page.locator('#recovery-attempts').blur();
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.waitForFunction(() => getComputedStyle(document.querySelector('.artwork img')).opacity === '1');
   try {
@@ -130,6 +131,13 @@ try {
   assert.equal(await page.locator('video').evaluate(v => v.playbackRate), 1.25);
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 0.5; v.volume = 0.41; v.muted = true; });
   await page.waitForFunction(() => { const video = document.querySelector('video'); return !video.seeking && Math.abs(video.currentTime - 0.5) < 0.05; });
+  await page.locator('#open-player-settings').click(); await page.locator('#edit-media').click();
+  await page.locator('#add-source-form [name="label"]').fill('Запасной сервер');
+  await page.locator('#add-source-form [name="url"]').fill('https://media.example.invalid/desktop-backup.webm');
+  await page.getByRole('button', { name: 'Добавить источник', exact: true }).click(); await page.locator('#close-media-dialog').click();
+  await page.locator('video').evaluate(v => v.dispatchEvent(new Event('error')));
+  await page.waitForFunction(() => document.querySelector('video')?.currentSrc.endsWith('/desktop-backup.webm') && document.querySelector('#playback-status').textContent.includes('пауза'));
+  assert.deepEqual(await page.locator('video').evaluate(v => ({ muted: v.muted, volume: v.volume, paused: v.paused, time: Math.round(v.currentTime * 10) / 10 })), { muted: true, volume: 0.41, paused: true, time: 0.5 });
   await page.locator('#open-player-settings').click();
   await page.locator('#player-engine').selectOption('videojs');
   await page.waitForFunction(() => document.querySelector('#playback-status').textContent.includes('пауза') && document.querySelector('#video-host .video-js'));

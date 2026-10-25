@@ -1,4 +1,4 @@
-import { parseAniDB, readCastCache, saveCastCache, castForEpisode, anidbPage, anidbReleaseId } from './anidb.js';
+import { parseAniDB, readCastCache, saveCastCache, castForEpisode, anidbPage, anidbReleaseId, characterRole } from './anidb.js';
 import { mergeCastPhotos, validateCharacterPhoto } from './character-photos.js';
 import { characterPhotoPicker } from './character-photo-picker.js';
 import { icon } from './icons.js';
@@ -36,9 +36,9 @@ export function castPanel({ $, node, active, persist, toast }) {
     const perEpisode = $('#cast-scope').value === 'episode';
     const characters = perEpisode ? castForEpisode(data, value.episode.number) : data.characters;
     $('#cast-status').textContent = perEpisode ? characters === null ? 'Для этой серии данные ещё не отмечены.' : `Серия ${value.episode.number} · отмечено вручную: ${characters.length}` : `Персонажей: ${characters.length} · имена и заметки можно менять`;
-    for (const character of characters || []) {
+    for (const character of [...(characters || [])].sort((a, b) => characterRole(a.role).rank - characterRole(b.role).rank)) {
       const personal = details.attach(character, { titleId: value.title.id, releaseId: data.id, characterId: character.id });
-      const card = node('article', undefined, 'cast-card'); const role = { 'main character in': 'Главный персонаж', 'secondary cast in': 'Второстепенный персонаж', 'appears in': 'Эпизодическая роль' }[character.role] || character.role;
+      const card = node('article', undefined, 'cast-card'); const role = characterRole(character.role).label;
       card.dataset.characterId = character.id;
       const portrait = node('div', undefined, 'character-portrait'); const fallback = node('span', undefined, 'character-photo-fallback'); fallback.append(icon('portrait'), node('span', 'Фотографии пока нет')); portrait.append(fallback);
       const source = character.photo?.url || character.imageUrl;

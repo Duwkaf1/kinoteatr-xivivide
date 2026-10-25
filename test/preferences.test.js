@@ -57,3 +57,11 @@ test('default quality persists even before the first title is added', () => {
   assert.deepEqual(loaded.state.titles, []);
   assert.equal(values.has('kadr.library.v1'), false);
 });
+
+test('old standard wait migrates once to thirty seconds and new manual waits remain editable', () => {
+  const map = new Map();const storage={getItem:key=>map.get(key),setItem:(key,value)=>map.set(key,value)};
+  map.set('kadr.preferences.v1',JSON.stringify({playback:{timeoutSeconds:15,attempts:3}}));
+  const upgraded=loadPreferences(storage);assert.equal(upgraded.playback.timeoutSeconds,30);assert.equal(upgraded.playback.attempts,3);
+  upgraded.playback.timeoutSeconds=15;savePreferences(upgraded,storage);assert.equal(loadPreferences(storage).playback.timeoutSeconds,15);
+  map.set('kadr.preferences.v1',JSON.stringify({playback:{timeoutSeconds:22}}));assert.equal(loadPreferences(storage).playback.timeoutSeconds,22);
+});
