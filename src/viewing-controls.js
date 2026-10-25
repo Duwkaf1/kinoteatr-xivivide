@@ -2,6 +2,7 @@ import { rankSources, validateLibrary } from './core.js';
 import { webPlayerURL } from './media-schema.js';
 import { SubtitleController } from './subtitles.js';
 import { languageName, subtitleKind } from './media-labels.js';
+import { subtitleCredit } from './subtitle-credit.js';
 
 export function viewingControls({ $, node, preferences, persist, savePreferences, toast, active, video, hls, currentSource, restart }) {
   let controller; let detach = () => {}; let currentTrack;
@@ -119,13 +120,14 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
       const fields = new FormData(form); const file = $('#subtitle-file').files[0];
       if (file && file.size > 2 * 1024 * 1024) throw new Error('Файл субтитров — до 2 МиБ.');
       if (file && fields.get('url')) throw new Error('Выбери файл или ссылку, одно из двух.');
-      const track = { id: crypto.randomUUID(), label: fields.get('label'), language: fields.get('language'), format: fields.get('format'), ...(file ? { content: new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()) } : { url: fields.get('url') }), ...(fields.get('sourceId') ? { sourceId: fields.get('sourceId') } : {}) };
+      const track = { id: crypto.randomUUID(), label: fields.get('label').trim(), language: fields.get('language'), format: fields.get('format'), ...(file ? { content: new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()) } : { url: fields.get('url') }), ...(fields.get('sourceId') ? { sourceId: fields.get('sourceId') } : {}) };
+      track.label = subtitleCredit(track);
       if (active() !== value) throw new Error('Серия изменилась. Открой её настройки заново.');
       updateEpisode({ subtitles: [...(value.episode.subtitles || []), track] }); preferences.watching.subtitleVariant = track.label; preferences.watching.subtitleFormat = 'all'; $('#subtitle-format').value = 'all'; savePreferences(); renderEntries(); subtitles();
       $('#subtitle-form-error').textContent = ''; form.reset(); toast('Вариант субтитров добавлен и сохранён.');
     } catch (error) { $('#subtitle-form-error').textContent = error.message; }
     finally { submit.disabled = false; }
   };
-  $('#subtitle-file').onchange = () => { const file = $('#subtitle-file').files[0]; if (!file) return; const ext = file.name.split('.').pop().toLowerCase(); if (['vtt', 'srt', 'ass', 'ssa'].includes(ext)) $('#add-subtitle-form [name="format"]').value = ext; if (!$('#add-subtitle-form [name="label"]').value) $('#add-subtitle-form [name="label"]').value = file.name.replace(/\.[^.]+$/, '').slice(0, 120); };
+  $('#subtitle-file').onchange = () => { const file = $('#subtitle-file').files[0]; if (!file) return; const ext = file.name.split('.').pop().toLowerCase(); if (['vtt', 'srt', 'ass', 'ssa'].includes(ext)) $('#add-subtitle-form [name="format"]').value = ext; };
   return { sources, subtitles, attach, stop: () => { detach(); controller?.dispose(); controller = null; currentTrack = null; }, restyle: () => { if (currentTrack) selectTrack(); } };
 }

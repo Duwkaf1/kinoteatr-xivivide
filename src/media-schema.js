@@ -1,3 +1,4 @@
+import { subtitleCredit } from './subtitle-credit.js';
 const MAX_TEXT = 2 * 1024 * 1024;
 export const PLAYER_HOSTS = Object.freeze(['old.yummyani.me', 'animejoy.ru', 'brogiro.cfd', 'g0e-1ka1v5q.troutcdn.site']);
 export function webPlayerURL(value) {
@@ -25,10 +26,10 @@ export function subtitleEntries(value, sourceIds, safeURL) {
   return value.map(track => {
     if (!track || typeof track.id !== 'string' || !track.id || ids.has(track.id)) throw new Error('У субтитров должны быть уникальные id.');
     ids.add(track.id);
-    if (typeof track.label !== 'string' || !track.label.trim() || track.label.length > 120) throw new Error('Укажи название перевода субтитров до 120 символов.');
+    for (const key of ['translator', 'studio', 'label']) if (track[key] !== undefined && (typeof track[key] !== 'string' || track[key].length > 120 || /[\u0000-\u001f\u007f]/.test(track[key]))) throw new Error('Имя переводчика или название команды — до 120 символов.');
     if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/i.test(track.language || '')) throw new Error('Укажи язык субтитров: например ru, en или ja.');
     if (!['vtt', 'srt', 'ass', 'ssa'].includes(track.format)) throw new Error('Поддерживаются субтитры VTT, SRT, ASS и SSA.');
-    const entry = { id: track.id, label: track.label.trim(), language: languageCode(track.language), format: track.format };
+    const entry = { id: track.id, label: subtitleCredit(track), language: languageCode(track.language), format: track.format };
     if (typeof track.content === 'string' && !track.url && track.content.length <= MAX_TEXT && track.content.trim()) entry.content = track.content;
     else if (typeof track.url === 'string' && !track.content && track.url.length <= 2048) entry.url = safeURL(track.url);
     else throw new Error('Для субтитров нужна одна HTTPS-ссылка или текст файла до 2 МиБ.');

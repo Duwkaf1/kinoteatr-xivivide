@@ -611,7 +611,8 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 1; });
   await playerSettings(page); await page.locator('#edit-media').click();
   const content = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Liberation Sans,22,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,20,20,20,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:08.00,Default,,0,0,0,,У каждого переводчика — свои слова.';
-  await page.locator('#subtitle-file').setInputFiles({ name: 'Студия В.ass', mimeType: 'text/plain', buffer: Buffer.from(content) });
+  await page.locator('#add-subtitle-form [name=label]').fill('Демонстрационные субтитры');
+  await page.locator('#subtitle-file').setInputFiles({ name: 'Демонстрационные субтитры.ass', mimeType: 'text/plain', buffer: Buffer.from(content) });
   await page.getByRole('button', { name: 'Добавить перевод', exact: true }).click();
   await page.locator('#close-media-dialog').click();
   await expect(page.locator('#subtitle-status')).toContainText('оформление автора', { timeout: 15000 });
@@ -1043,4 +1044,22 @@ test('roundness storage failure keeps the live interface usable and reports the 
   await page.locator('#custom-radius').fill('32'); await expect(page.locator('#settings-save-status')).toContainText('Не удалось сохранить');
   await expect(page.locator('#custom-radius-value')).toHaveText('Округлая');
   await page.locator('#settings-advanced-tab').click(); await expect(page.locator('#advanced-settings')).toBeVisible(); expect(errors).toEqual([]);
+});
+
+test('local subtitle import uses the credited translator instead of the filename and admits unknown authors', async ({page})=>{
+  const title=anime([source('ru')]); await seed(page,[title]); await serveVideo(page); await open(page);
+  await page.getByRole('button',{name:'Смотреть: Проверка плеера',exact:true}).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await playerSettings(page); await page.locator('#edit-media').click();
+  const ass=readFileSync(new URL('../test/fixtures/translator.ass',import.meta.url),'utf8').replace('[Script Info]','[Script Info]\nOriginal Translation: Проверяемое имя переводчика');
+  await page.locator('#subtitle-file').setInputFiles({name:'Студия B.ass',mimeType:'text/plain',buffer:Buffer.from(ass)});
+  await expect(page.locator('#add-subtitle-form [name=label]')).toHaveValue('');
+  await page.getByRole('button',{name:'Добавить перевод',exact:true}).click();
+  await expect(page.locator('#existing-subtitles')).toContainText('Проверяемое имя переводчика');
+  await page.locator('#subtitle-file').setInputFiles({name:'[GuessMe] 01.srt',mimeType:'text/plain',buffer:Buffer.from('1\n00:00:00,000 --> 00:00:08,000\nТекст')});
+  await page.getByRole('button',{name:'Добавить перевод',exact:true}).click();
+  await expect(page.locator('#existing-subtitles')).toContainText('Переводчик не указан');
+  await page.locator('#close-media-dialog').click();
+  await expect(page.locator('#subtitle-selector')).toContainText('Проверяемое имя переводчика');
+  await expect(page.locator('#subtitle-selector')).not.toContainText('Студия B');
 });

@@ -12,8 +12,8 @@
           { "id": "ru-dub", "url": "https://dub.example.invalid/1.mp4", "voice": "AniDUB", "language": "ru", "audioType": "dub", "quality": 1080 }
         ],
         "subtitles": [
-          { "id": "studio-a", "label": "Перевод студии А", "language": "ru", "format": "vtt", "url": "https://subs.example.invalid/studio-a/1.vtt" },
-          { "id": "studio-b", "label": "Перевод студии Б", "language": "ru", "format": "ass", "url": "https://subs.example.invalid/studio-b/1.ass", "sourceId": "jp-main" },
+          { "id": "studio-a", "label": "Демонстрационный перевод · первый вариант", "language": "ru", "format": "vtt", "url": "https://subs.example.invalid/studio-a/1.vtt" },
+          { "id": "studio-b", "label": "Демонстрационный перевод · второй вариант", "language": "ru", "format": "ass", "url": "https://subs.example.invalid/studio-b/1.ass", "sourceId": "jp-main" },
           { "id": "local-example", "label": "Пример своего перевода", "language": "ru", "format": "srt", "content": "1\n00:00:01,000 --> 00:00:04,000\nУ этого переводчика другие слова." }
         ]
       }

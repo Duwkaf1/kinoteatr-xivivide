@@ -196,7 +196,7 @@
         <p id="source-form-error" role="alert"></p><button type="submit" class="primary">Добавить источник</button>
       </form></details>
       <details open><summary>Добавить вариант субтитров</summary><div id="existing-subtitles" class="entry-list"></div><form id="add-subtitle-form">
-        <label>Студия / переводчик<input name="label" required maxlength="120" placeholder="Название варианта перевода"></label><label>HTTPS-ссылка на субтитры<input name="url" type="url" placeholder="https://…/episode.ass"></label>
+        <label>Переводчик или команда<input name="label" maxlength="120" placeholder="Имя из источника субтитров, если известно"></label><p class="muted">Для файлов с оформлением имя берётся из сведений об авторе перевода. Если его нет, можно указать вручную.</p><label>HTTPS-ссылка на субтитры<input name="url" type="url" placeholder="https://…/episode.ass"></label>
         <label>Или файл с устройства<input id="subtitle-file" type="file" accept=".vtt,.srt,.ass,.ssa"></label>
         <div class="form-row"><label>Язык<select name="language"><option value="ru">Русский</option><option value="en">Английский</option><option value="ja">Японский</option></select></label><label>Формат<select name="format"><option value="vtt">Для онлайн-видео (.vtt)</option><option value="srt">Текстовые (.srt)</option><option value="ass">С оформлением (.ass)</option><option value="ssa">С оформлением (.ssa)</option></select></label></div>
         <label>Для источника<select id="subtitle-source" name="sourceId"></select></label><p class="muted">Файлы сохраняются вместе с библиотекой. Для ссылок сервер должен разрешать загрузку субтитров; вшитый в видео текст заменить нельзя.</p>
