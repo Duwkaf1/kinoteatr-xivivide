@@ -9,6 +9,8 @@ import { boundedText } from '../src/subtitles.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 app.setName('Yoru');
+if (process.platform === 'win32') app.setAppUserModelId('Duwkaf1.Yoru');
+const windowIcon = path.join(here, process.platform === 'win32' ? '../assets/yoru.ico' : '../dist/yoru-icon.png');
 app.commandLine.appendSwitch('lang', 'ru');
 const profile = app.commandLine.getSwitchValue('user-data-dir');
 // Keep the existing profile after rebranding so saved library/settings remain available.
@@ -22,7 +24,7 @@ const anidbCache = new Map(); let lastAniDBRequest = 0; let aniDBBusy = false; l
 function openPlayerPage(key, url, title) {
   const existing = sourceWindows.get(key);
   if (existing && !existing.isDestroyed()) { if (existing.webContents.getURL() !== url) existing.loadURL(url).catch(() => {}); existing.focus(); return; }
-  const window = new BrowserWindow({ width: 1200, height: 850, title, autoHideMenuBar: true,
+  const window = new BrowserWindow({ width: 1200, height: 850, title, icon: windowIcon, autoHideMenuBar: true,
     webPreferences: { partition: `player-${key}`, sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true },
   });
   sourceWindows.set(key, window); const session = window.webContents.session;
@@ -38,7 +40,7 @@ else {
   app.on('second-instance', () => { if (mainWindow?.isMinimized()) mainWindow.restore(); mainWindow?.focus(); });
   app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-      width: 1320, height: 900, minWidth: 640, minHeight: 480, title: 'Yoru — аниме', backgroundColor: '#151617', autoHideMenuBar: true,
+      width: 1320, height: 900, minWidth: 640, minHeight: 480, title: 'Yoru — аниме', icon: windowIcon, backgroundColor: '#151617', autoHideMenuBar: true,
       webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     });
     mainWindow.on('closed', () => {
@@ -60,7 +62,7 @@ else {
       const url = data?.wiki === true ? 'https://wiki.anidb.net/HTTP_API_Definition' : anidbPage(data?.id, data?.episodeId);
       const key = 'anidb'; const existing = sourceWindows.get(key);
       if (existing && !existing.isDestroyed()) { existing.loadURL(url).catch(() => {}); existing.focus(); return; }
-      const window = new BrowserWindow({ width: 1200, height: 850, title: 'AniDB · Yoru', autoHideMenuBar: true,
+      const window = new BrowserWindow({ width: 1200, height: 850, title: 'AniDB · Yoru', icon: windowIcon, autoHideMenuBar: true,
         webPreferences: { partition: 'anidb', sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true },
       });
       sourceWindows.set(key, window); const session = window.webContents.session;
@@ -95,7 +97,7 @@ else {
       if (!source) throw new Error('Неизвестный источник');
       const existing = sourceWindows.get(id);
       if (existing && !existing.isDestroyed()) { existing.focus(); return; }
-      const window = new BrowserWindow({ width: 1100, height: 800, title: source.name, autoHideMenuBar: true,
+      const window = new BrowserWindow({ width: 1100, height: 800, title: source.name, icon: windowIcon, autoHideMenuBar: true,
         webPreferences: { partition: `source-${id}`, contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true, allowRunningInsecureContent: false },
       });
       sourceWindows.set(id, window);

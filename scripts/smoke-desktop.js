@@ -10,11 +10,11 @@ const require = createRequire(import.meta.url);
 const profile = await mkdtemp(path.join(tmpdir(), 'kadr-desktop-'));
 const root = path.resolve(import.meta.dirname, '..');
 const applicationRoot = process.env.YORU_SMOKE_APP_PATH ? path.resolve(process.env.YORU_SMOKE_APP_PATH) : root;
-const args = [applicationRoot, `--user-data-dir=${profile}`, '--disable-gpu'];
+const args = [...(process.env.YORU_SMOKE_EXECUTABLE ? [] : [applicationRoot]), `--user-data-dir=${profile}`, '--disable-gpu'];
 if (process.env.KADR_ELECTRON_NO_SANDBOX === '1') args.push('--no-sandbox');
 let application;
 try {
-  application = await electron.launch({ executablePath: require('electron'), args, timeout: 30000 });
+  application = await electron.launch({ executablePath: process.env.YORU_SMOKE_EXECUTABLE || require('electron'), args, timeout: 30000 });
   const page = await application.firstWindow();
   const errors = [];
   page.on('pageerror', error => errors.push(error.stack || error.message));

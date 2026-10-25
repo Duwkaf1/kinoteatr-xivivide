@@ -5,8 +5,10 @@ const { version } = JSON.parse(await readFile(new URL('../package.json', import.
 const output = await packager({
   dir: '.', out: 'artifacts', name: 'Yoru', executableName: 'Yoru', platform: 'win32', arch: 'x64',
   electronVersion: '45.0.0', appVersion: version, asar: true, overwrite: true,
+  icon: path.resolve('assets/yoru.ico'),
+  win32metadata: { CompanyName: 'Duwkaf1', FileDescription: 'Yoru — личный кинозал для аниме', ProductName: 'Yoru' },
   download: { cacheRoot: path.resolve('.cache/electron') },
-  ignore: [/^\/(test|e2e|test-results|playwright-report|scripts|docs|public|artifacts|\.git|\.cache)(\/|$)/, /^\/(vite\.config|playwright\.config)/],
+  ignore: [/^\/(test|e2e|test-results|playwright-report|scripts|installer|docs|public|artifacts|\.git|\.cache)(\/|$)/, /^\/assets\/branding(\/|$)/, /^\/(vite\.config|playwright\.config)/],
 });
 for (const item of output) {
   await copyFile('node_modules/hls.js/LICENSE', path.join(item, 'LICENSE-hls.js.txt'));

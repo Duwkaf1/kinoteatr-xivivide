@@ -9,7 +9,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,6 +22,14 @@ jobs:
       - name: Launch and check the real desktop application
         run: npm run test:desktop
       - run: npm run package:win
+      - name: Install NSIS compiler
+        shell: pwsh
+        run: choco install nsis --version=3.11 -y --no-progress
+      - name: Build standalone Windows installer
+        run: node scripts/build-installer.js
+      - name: Install, launch, upgrade and uninstall on Windows
+        shell: pwsh
+        run: ./scripts/test-installer.ps1
       - name: Archive application
         shell: pwsh
         run: 7z a artifacts/Yoru-windows-x64.zip ./artifacts/Yoru-win32-x64/*
@@ -29,4 +37,11 @@ jobs:
         with:
           name: Yoru-windows-x64
           path: artifacts/Yoru-windows-x64.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yoru-installer-x64
+          path: |
+            artifacts/Yoru-Setup-*-x64.exe
+            artifacts/Yoru-Setup-*-x64.exe.sha256
           if-no-files-found: error

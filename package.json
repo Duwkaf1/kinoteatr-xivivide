@@ -1,7 +1,7 @@
 {
   "name": "yoru-anime",
   "productName": "Yoru",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "author": "Duwkaf1",
   "description": "Персональный Windows-плеер для аниме",
@@ -16,7 +16,9 @@
     "test:desktop": "node scripts/smoke-desktop.js",
     "package:win": "npm run build && node scripts/package-win.js",
     "predev": "node scripts/copy-media-assets.js",
-    "prebuild": "node scripts/copy-media-assets.js"
+    "prebuild": "node scripts/copy-media-assets.js",
+    "installer:win": "npm run package:win && node scripts/build-installer.js",
+    "test:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
