@@ -1,5 +1,4 @@
-import { parseAniDB, readCastCache, saveCastCache, castForEpisode, anidbPage } from './anidb.js';
-import { animeId } from './media-schema.js';
+import { parseAniDB, readCastCache, saveCastCache, castForEpisode, anidbPage, anidbReleaseId } from './anidb.js';
 import { mergeCastPhotos, validateCharacterPhoto } from './character-photos.js';
 import { characterPhotoPicker } from './character-photo-picker.js';
 import { icon } from './icons.js';
@@ -16,20 +15,27 @@ export function castPanel({ $, node, active, persist, toast }) {
   const season = () => Number($('#cast-season').value) || 1;
   const mapping = () => active()?.title.seasons?.find(item => item.number === season());
   const id = () => mapping()?.anidbId || (season() === 1 ? active()?.title.anidbId : null);
+  const message = text => { $('#cast-status').textContent = text; $('#cast-settings-status').textContent = text; };
+  $('#open-cast-settings').onclick = () => { $('#cast-settings-status').textContent = ''; $('#cast-settings-dialog').showModal(); };
+  for (const selector of ['#close-cast-settings', '#done-cast-settings']) $(selector).onclick = () => $('#cast-settings-dialog').close();
   function save(data) { cache[data.id] = data; try { saveCastCache(cache); } catch { toast('Каст показан до закрытия приложения: не удалось сохранить его на диске.'); } }
   function render() {
     details.flush();
     serial++; const value = active(); if (!value) return;
     $('#cast-context').textContent = `${value.title.title} · ${$('#cast-season').selectedOptions[0]?.textContent || 'Сезон 1'}`;
-    $('#anidb-id').value = id() || ''; $('#cast-list').replaceChildren(); $('#cast-episode-editor').replaceChildren();
+    $('#cast-settings-context').textContent = $('#cast-context').textContent;
+    $('#cast-season-label').hidden = $('#cast-season').options.length < 2;
+    $('#anidb-id').value = id() ? anidbPage(id()) : ''; $('#cast-list').replaceChildren(); $('#cast-episode-editor').replaceChildren();
     const data = cache[id()]; const known = data && Array.isArray(data.characters) && Array.isArray(data.episodes);
     const episode = known ? data.episodes.find(item => item.number === String(value.episode.number)) : null;
     $('#anidb-episode').disabled = !episode?.id || season() !== (value.episode.season || 1);
     $('#save-episode-cast').disabled = !known || season() !== (value.episode.season || 1);
-    if (!known) { $('#cast-status').textContent = id() ? 'Состав ещё не загружен. Открой AniDB, импортируй XML или подключи зарегистрированный HTTP-клиент.' : 'Привяжи AniDB ID именно этого сезона. Разные сезоны могут иметь разные ID.'; return; }
+    $('#cast-settings-label').textContent = known ? 'Настроить' : 'Добавить персонажей';
+    $('#cast-episode-settings').hidden = !known;
+    if (!known) { $('#cast-status').textContent = 'Персонажей пока нет. Список можно добавить в настройках.'; return; }
     const perEpisode = $('#cast-scope').value === 'episode';
     const characters = perEpisode ? castForEpisode(data, value.episode.number) : data.characters;
-    $('#cast-status').textContent = perEpisode ? characters === null ? 'В AniDB XML нет состава по сериям. Для этой серии данные ещё не отмечены; общий состав сезона не подставляется.' : `Серия ${value.episode.number} · отмечено вручную: ${characters.length}` : `${data.title || 'AniDB'} · состав сезона: ${characters.length} · обновлено ${new Date(data.updatedAt).toLocaleDateString('ru')}`;
+    $('#cast-status').textContent = perEpisode ? characters === null ? 'Для этой серии данные ещё не отмечены.' : `Серия ${value.episode.number} · отмечено вручную: ${characters.length}` : `Персонажей: ${characters.length} · имена и заметки можно менять`;
     for (const character of characters || []) {
       const personal = details.attach(character, { titleId: value.title.id, releaseId: data.id, characterId: character.id });
       const card = node('article', undefined, 'cast-card'); const role = { 'main character in': 'Главный персонаж', 'secondary cast in': 'Второстепенный персонаж', 'appears in': 'Эпизодическая роль' }[character.role] || character.role;
@@ -74,43 +80,43 @@ export function castPanel({ $, node, active, persist, toast }) {
   };
   $('#bind-anidb').onclick = () => {
     try {
-      const value = active(); const entry = { ...(mapping() || {}), number: season(), anidbId: animeId(Number($('#anidb-id').value)) };
+      const value = active(); const entry = { ...(mapping() || {}), number: season(), anidbId: anidbReleaseId($('#anidb-id').value) };
       value.title.seasons = [...(value.title.seasons || []).filter(item => item.number !== season()), entry].sort((a, b) => a.number - b.number);
-      persist(); render(); toast('Сезон привязан к AniDB.');
-    } catch (error) { $('#cast-status').textContent = error.message; }
+      persist(); render(); $('#cast-settings-status').textContent = 'Страница сохранена. Если список ещё пуст, выбери способ загрузки ниже.';
+    } catch (error) { $('#cast-settings-status').textContent = error.message; }
   };
   async function open(episode = false) {
     try {
       const value = active(); const data = cache[id()]; const episodeId = episode ? data?.episodes.find(item => item.number === String(value.episode.number))?.id : undefined;
-      if (!id()) throw new Error('Сначала укажи AniDB ID сезона.');
+      if (!id()) throw new Error('Сначала сохрани ссылку на аниме.');
       if (window.kadr?.openAniDB) await window.kadr.openAniDB({ id: id(), episodeId });
       else window.open(anidbPage(id(), episodeId), '_blank', 'noopener,noreferrer');
-    } catch (error) { $('#cast-status').textContent = error.message; }
+    } catch (error) { message(error.message); }
   }
   $('#anidb-open').onclick = () => open(); $('#anidb-episode').onclick = () => open(true);
   $('#anidb-xml-button').onclick = () => $('#anidb-xml').click();
   $('#anidb-xml').onchange = async event => {
     const target = id(); const token = serial; const file = event.target.files[0];
     try {
-      if (!target) throw new Error('Сначала привяжи ID сезона.');
+      if (!target) throw new Error('Сначала сохрани ссылку на аниме.');
       if (!file || file.size > 2 * 1024 * 1024) throw new Error('Нужен XML-файл до 2 МиБ.');
       const data = parseAniDB(await file.text(), target);
       if (token !== serial) return;
-      save(mergeCastPhotos(data, cache[target])); render();
-    } catch (error) { if (token === serial) $('#cast-status').textContent = error.message; }
+      save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = 'Персонажи добавлены. Можно закрыть настройки.';
+    } catch (error) { if (token === serial) message(error.message); }
     event.target.value = '';
   };
   $('#anidb-fetch').onclick = async () => {
     const target = id(); const token = serial; const button = $('#anidb-fetch'); button.disabled = true;
     try {
-      if (!target) throw new Error('Сначала привяжи ID сезона.');
+      if (!target) throw new Error('Сначала сохрани ссылку на аниме.');
       if (!window.kadr?.fetchAniDB) throw new Error('Прямой запрос AniDB доступен в настольном приложении. Здесь можно импортировать XML.');
       const client = $('#anidb-client').value.trim(); const version = Number($('#anidb-client-version').value);
       if (!client) throw new Error('Для API нужно зарегистрированное имя клиента AniDB. Укажи его ниже или импортируй XML.');
       const xml = await window.kadr.fetchAniDB({ id: target, client, version });
       if (token !== serial) return;
-      const data = parseAniDB(xml, target); save(mergeCastPhotos(data, cache[target])); render();
-    } catch (error) { if (token === serial) $('#cast-status').textContent = `Не удалось обновить: ${error.message}`; }
+      const data = parseAniDB(xml, target); save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = 'Список обновлён.';
+    } catch (error) { if (token === serial) message(`Не удалось обновить: ${error.message}`); }
     finally { button.disabled = false; }
   };
   $('#save-episode-cast').onclick = () => {

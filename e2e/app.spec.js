@@ -42,6 +42,7 @@ function fulfillVideo(route) {
 async function open(page) { await page.goto('http://127.0.0.1:5173'); }
 async function playerSettings(page) { if (!await page.locator('#player-settings-dialog').isVisible()) await page.locator('#open-player-settings').click(); }
 async function closePlayerSettings(page) { if (await page.locator('#player-settings-dialog').isVisible()) await page.locator('#close-player-settings').click(); }
+async function castScope(page, scope) { await page.locator('#open-cast-settings').click(); await page.locator('#cast-scope').selectOption(scope); await page.locator('#done-cast-settings').click(); }
 
 test('choose a real catalog poster explicitly, persist it, edit and remove it', async ({ page }) => {
   const item = posterCatalog[0]; let searches = 0;
@@ -598,22 +599,24 @@ test('AniDB season identity, XML cast, unknown episode membership and manual ann
   await page.locator('#anidb-xml').setInputFiles({ name: 'anidb.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(2);
   await expect(page.locator('#cast-list')).toContainText('Актёр А');
-  await page.locator('#cast-scope').selectOption('episode');
+  await castScope(page, 'episode');
   await expect(page.locator('#cast-status')).toContainText('данные ещё не отмечены');
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
-  await page.getByText('Отметить персонажей текущей серии', { exact: true }).click();
+  await page.locator('#open-cast-settings').click();
+  await page.getByText('Выбрать персонажей этой серии', { exact: true }).click();
   await page.locator('#cast-episode-editor input[value="2"]').check(); await page.locator('#save-episode-cast').click();
+  await page.locator('#done-cast-settings').click();
   await expect(page.locator('#cast-status')).toContainText('отмечено вручную: 1');
   await expect(page.locator('#cast-list')).toContainText('Персонаж Б');
   await expect(page.locator('#cast-list')).not.toContainText('Персонаж А');
   await page.screenshot({ path: 'test-results/anidb-cast.png', fullPage: true });
-  await page.locator('#cast-scope').selectOption('season'); await page.locator('#cast-season').selectOption('2');
-  await expect(page.locator('#anidb-id')).toHaveValue('456');
+  await castScope(page, 'season'); await page.locator('#cast-season').selectOption('2');
+  await expect(page.locator('#anidb-id')).toHaveValue('https://anidb.net/anime/456#characterlist');
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
   await page.locator('#anidb-xml').setInputFiles({ name: 'wrong-season.xml', mimeType: 'application/xml', buffer: Buffer.from(xml) });
   await expect(page.locator('#cast-status')).toContainText('не совпадает');
   await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
-  await page.locator('#cast-panel > summary').click(); await page.locator('#cast-scope').selectOption('episode');
+  await page.locator('#cast-panel > summary').click(); await castScope(page, 'episode');
   await expect(page.locator('#cast-list .cast-card')).toHaveCount(1);
   await expect(page.locator('#cast-list')).toContainText('Персонаж Б');
 });
@@ -636,6 +639,27 @@ test('website player pages can be added without pretending they are direct strea
   expect(website.url()).toBe('https://old.yummyani.me/catalog/item/example');
   expect(await website.title()).toBe('Website fixture'); await website.close();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].sources)).toEqual([]);
+});
+
+test('empty character panels offer one clear action and keep advanced setup out of the way', async ({ page }) => {
+  await seed(page,[anime([source('first')])]); await serveVideo(page); await open(page);
+  await page.getByRole('button',{name:'Смотреть: Проверка плеера',exact:true}).click();
+  await page.locator('#cast-panel > summary').click();
+  await expect(page.locator('#cast-settings-label')).toHaveText('Добавить персонажей');
+  await expect(page.locator('#cast-panel').getByRole('button')).toHaveCount(1);
+  await expect(page.locator('#cast-panel')).not.toContainText(/AniDB|XML|Привязать|HTTP/);
+  await page.setViewportSize({width:640,height:480}); await page.locator('#open-cast-settings').click();
+  await page.locator('#anidb-id').fill('https://evil.test/anime/123'); await page.locator('#bind-anidb').click();
+  await expect(page.locator('#cast-settings-status')).toContainText('Вставь ссылку');
+  await page.locator('#anidb-id').fill('https://anidb.net/anime/123'); await page.locator('#bind-anidb').click();
+  await expect(page.locator('#cast-settings-status')).toContainText('Страница сохранена');
+  await expect(page.locator('#anidb-client')).toBeHidden(); await expect(page.locator('#anidb-fetch')).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.keyboard.press('Escape'); await expect(page.locator('#open-cast-settings')).toBeFocused();
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(0);
+  await page.locator('#anidb-xml').setInputFiles({name:'cast.xml',mimeType:'application/xml',buffer:Buffer.from('<anime id="123"><characters><character id="1"><name>Персонаж</name></character></characters><episodes/></anime>')});
+  await expect(page.locator('#cast-settings-label')).toHaveText('Настроить');
+  await expect(page.locator('#cast-list .cast-card')).toHaveCount(1);
 });
 
 test('AniDB portraits, alternative photo selection, refresh persistence and missing images work independently of video', async ({ page }) => {
@@ -702,7 +726,14 @@ test('archived AniDB cast displays real CDN portraits and actor photos in the so
   await page.locator('#character-name-input').fill('Фубуки Сакурагасаки'); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
   await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).fill('Следить за её историей');
   await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).blur();
+  await expect(page.locator('#cast-panel #anidb-id')).toHaveCount(0);
+  await expect(page.locator('#cast-season-label')).toBeHidden();
+  await expect(page.locator('#cast-panel')).not.toContainText(/Привязать|HTTP|XML|Подключение|Номер релиза/);
   await page.locator('#cast-panel').screenshot({ path: 'test-results/character-photos.png' });
+  await page.locator('#open-cast-settings').click();
+  await expect(page.locator('#anidb-fetch')).toBeHidden();
+  await page.locator('#cast-settings-dialog').screenshot({ path: 'test-results/cast-settings.png' });
+  await page.keyboard.press('Escape'); await expect(page.locator('#open-cast-settings')).toBeFocused();
   await page.getByRole('button', { name: 'Выбрать фото: Фубуки Сакурагасаки', exact: true }).click();
   await page.locator('#character-photo-dialog').screenshot({ path: 'test-results/character-photo-dialog.png' });
   await page.locator('#character-photo-cancel').click();

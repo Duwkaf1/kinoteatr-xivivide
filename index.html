@@ -118,18 +118,29 @@
         <div class="player-more">
           <details id="episode-picker" class="player-drawer"><summary>Серии</summary><div id="episode-list" class="episodes"></div></details>
         <details id="cast-panel" class="settings-card player-drawer"><summary>Персонажи</summary>
-          <p id="cast-context" class="cast-context"></p><p class="settings-description">У каждого аниме и сезона своя связь с AniDB. Имя можно изменить карандашом, под ним — личная заметка с автосохранением.</p>
-          <div class="cast-toolbar"><label>Сезон<select id="cast-season"></select></label><label>Показать<select id="cast-scope"><option value="season">Состав сезона</option><option value="episode">Состав текущей серии</option></select></label><label>Номер релиза AniDB<input id="anidb-id" type="number" min="1" max="100000000" step="1"></label><button id="bind-anidb" class="quiet" type="button">Привязать</button></div>
-          <div class="cast-actions"><button id="anidb-open" class="quiet" type="button">Открыть AniDB в приложении</button><button id="anidb-episode" class="quiet" type="button" disabled>Страница серии</button><button id="anidb-xml-button" class="quiet" type="button">Загрузить файл состава</button><input id="anidb-xml" type="file" accept=".xml,text/xml,application/xml" hidden><button id="anidb-fetch" class="quiet" type="button">Обновить состав</button></div>
-          <p id="cast-status" role="status" class="settings-description"></p><div id="cast-list"></div>
-          <details><summary>Отметить персонажей текущей серии</summary><p class="muted">Файл AniDB содержит общий состав сезона и не даёт полный состав каждой серии. Можно отметить его вручную; такие отметки будут подписаны отдельно.</p><div id="cast-episode-editor"></div><button id="save-episode-cast" class="quiet" type="button" disabled>Сохранить состав серии</button></details>
-          <details class="anidb-config"><summary>Подключение к AniDB</summary><p class="muted">Для автоматической загрузки нужны имя и версия приложения, зарегистрированного в AniDB. Это не твой логин и пароль. Можно также открыть сайт или загрузить файл состава.</p><div class="cast-toolbar"><label>Имя клиента<input id="anidb-client" maxlength="32" pattern="[a-z0-9][a-z0-9_-]{2,31}" placeholder="Зарегистрированный клиент"></label><label>Версия клиента<input id="anidb-client-version" type="number" min="1" max="999999" step="1" value="1"></label></div></details>
+          <div class="cast-simple-heading"><p id="cast-context" class="cast-context"></p><div class="cast-simple-actions"><label id="cast-season-label">Сезон<select id="cast-season"></select></label><button id="open-cast-settings" class="quiet" type="button" aria-label="Настройки персонажей" aria-haspopup="dialog" aria-controls="cast-settings-dialog"><span data-icon="settings"></span><span id="cast-settings-label">Настроить</span></button></div></div>
+          <p id="cast-status" role="status" class="cast-caption"></p><div id="cast-list"></div>
         </details>
         <details class="info-box player-drawer"><summary>Демонстрация в Discord</summary><p>В установленном Discord выбери демонстрацию окна «Yoru» и включи передачу звука. Плеер использует обычный аудиовыход Windows. Не транслируй весь экран, если нужен только звук приложения.</p><p>Захват звука и изображения ещё нужно проверить на Windows. При проблемах с аппаратным ускорением запусти приложение с параметром --disable-gpu.</p></details>
         </div>
       </section>
       <footer><span>Твой прогресс сохраняется на этом устройстве</span><span id="footer-mode">Качество без автоматического снижения · Без скачивания серий</span></footer>
     </main>
+    <dialog id="cast-settings-dialog" aria-labelledby="cast-settings-title">
+      <div class="compact-dialog-heading"><div><h2 id="cast-settings-title">Список персонажей</h2><p id="cast-settings-context" class="muted"></p></div><button id="close-cast-settings" class="icon-button" type="button" aria-label="Закрыть настройки персонажей"><span data-icon="close"></span></button></div>
+      <p class="muted">Эти настройки нужны, только если персонажей ещё нет или выбран другой список. Имена и заметки меняются прямо на карточках.</p>
+      <label class="cast-setting-label" for="anidb-id">Ссылка на аниме в AniDB</label><div class="poster-url-row"><input id="anidb-id" type="text" maxlength="2048" placeholder="https://anidb.net/anime/…"><button id="bind-anidb" class="quiet" type="button">Сохранить</button></div>
+      <p class="settings-hint">Выбранная страница определяет, чей список использовать. Для загрузки списка доступны дополнительные способы ниже.</p>
+      <label class="cast-setting-label" for="cast-scope">Показывать персонажей</label><select id="cast-scope"><option value="season">Всего сезона</option><option value="episode">Отмеченных в этой серии</option></select>
+      <p id="cast-settings-status" role="status" class="muted"></p>
+      <details id="cast-episode-settings"><summary>Выбрать персонажей этой серии</summary><p class="muted">Отметь, кто появился в текущей серии. Эти отметки сохраняются только у тебя.</p><div id="cast-episode-editor"></div><button id="save-episode-cast" class="quiet" type="button" disabled>Сохранить выбор</button></details>
+      <details id="cast-extra-settings"><summary>Дополнительные способы загрузки</summary>
+        <div class="cast-actions"><button id="anidb-open" class="quiet" type="button">Открыть страницу аниме</button><button id="anidb-episode" class="quiet" type="button" disabled>Открыть страницу серии</button><button id="anidb-xml-button" class="quiet" type="button">Загрузить список из файла</button><input id="anidb-xml" type="file" accept=".xml,text/xml,application/xml" hidden><button id="anidb-fetch" class="quiet" type="button">Загрузить из AniDB</button></div>
+        <p class="muted">Файл списка — XML из AniDB. Для загрузки с сервера нужен зарегистрированный клиент; без него можно использовать файл.</p>
+        <details class="anidb-config"><summary>Параметры загрузки из AniDB</summary><p class="muted">Данные зарегистрированного HTTP-клиента. Логин и пароль от аккаунта не нужны.</p><div class="cast-toolbar"><label>Имя клиента<input id="anidb-client" maxlength="32" pattern="[a-z0-9][a-z0-9_-]{2,31}" placeholder="Зарегистрированный клиент"></label><label>Версия клиента<input id="anidb-client-version" type="number" min="1" max="999999" step="1" value="1"></label></div></details>
+      </details>
+      <div class="dialog-actions"><button id="done-cast-settings" class="primary" type="button">Готово</button></div>
+    </dialog>
     <dialog id="player-settings-dialog" aria-labelledby="player-settings-title">
       <div class="compact-dialog-heading"><div><p class="eyebrow">ПОД ТЕБЯ</p><h2 id="player-settings-title">Параметры просмотра</h2></div><button id="close-player-settings" type="button" class="icon-button" aria-label="Закрыть параметры"><span data-icon="close"></span></button></div>
       <div class="viewing-options">

@@ -4,9 +4,15 @@ import { rankSources, PlaybackPlan, validateLibrary } from '../src/core.js';
 import { parseTextSubtitles } from '../src/subtitles.js';
 import { fixedQualityManifest } from '../src/alternate-player.js';
 import { defaultWatching, validateWatching, episodeOriginalLanguage } from '../src/watching.js';
-import { castForEpisode, anidbPage } from '../src/anidb.js';
+import { castForEpisode, anidbPage, anidbReleaseId } from '../src/anidb.js';
 import { webPlayerURL } from '../src/media-schema.js';
 const source = (id, language, audioType, quality = 1080) => ({ id, voice: 'Перевод', url: `https://media.test/${id}.mp4`, language, audioType, quality });
+test('cast setup accepts anime page links while old numeric identities remain compatible', () => {
+  assert.equal(anidbReleaseId('https://anidb.net/anime/128#characterlist'), 128);
+  assert.equal(anidbReleaseId(' 128 '), 128);
+  assert.equal(anidbReleaseId('https://www.anidb.net/anime/456/'), 456);
+  for (const value of ['https://evil.test/anime/128','https://anidb.net/character/128','https://user:secret@anidb.net/anime/128','http://anidb.net/anime/128','0','-1','hello']) assert.throws(() => anidbReleaseId(value));
+});
 test('original mode preserves explicit language and quality across every retry; default remains Russian', () => {
   const sources = [source('ru', 'ru', 'dub'), source('en-dub', 'en', 'dub'), source('ja-unknown', 'ja', undefined), source('ja-low', 'ja', 'original', 720), source('en-original', 'en', 'original'), source('ja-a', 'ja', 'original'), source('ja-b', 'ja', 'original')];
   assert.deepEqual(rankSources(sources, 1080).map(s => s.id), ['ru']);

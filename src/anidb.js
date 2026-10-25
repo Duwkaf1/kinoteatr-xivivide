@@ -1,5 +1,14 @@
 import { animeId } from './media-schema.js';
 import { anidbImage, validateCharacterPhoto } from './character-photos.js';
+export function anidbReleaseId(value) {
+  const text = String(value).trim();
+  if (/^\d+$/.test(text)) return animeId(Number(text));
+  try {
+    const url = new URL(text); const match = url.pathname.match(/^\/anime\/(\d+)\/?$/);
+    if (url.protocol === 'https:' && ['anidb.net', 'www.anidb.net'].includes(url.hostname) && !url.username && !url.password && !url.port && match) return animeId(Number(match[1]));
+  } catch { /* Report a human-readable input error below. */ }
+  throw new Error('Вставь ссылку на страницу аниме в AniDB, например https://anidb.net/anime/128.');
+}
 export function anidbPage(id, episodeId) {
   return episodeId ? `https://anidb.net/episode/${animeId(episodeId)}` : `https://anidb.net/anime/${animeId(id)}#characterlist`;
 }
