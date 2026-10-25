@@ -182,7 +182,7 @@ FunctionEnd
 
 Section "Uninstall"
   Call un.CheckClosed
-  !include "${UNINSTALL_FILES}"
+  !include /CHARSET=UTF8 "${UNINSTALL_FILES}"
   Delete "$INSTDIR\Uninstall Yoru.exe"
   Delete "$DESKTOP\Yoru.lnk"
   Delete "$SMPROGRAMS\Yoru\Yoru.lnk"

@@ -43,7 +43,7 @@ public static class InstallerUI {
     private static bool Matches(IntPtr window, string name) {
         var className = new StringBuilder(64); GetClassNameW(window, className, className.Capacity);
         // Progress labels can also say "Готово". Only activate actual buttons.
-        return className.ToString() == "Button" && Text(window).Replace("&", "").Trim() == name;
+        return string.Equals(className.ToString(), "Button", StringComparison.OrdinalIgnoreCase) && Text(window).Replace("&", "").Trim() == name;
     }
     public static IntPtr Control(IntPtr parent, string name) {
         IntPtr result = IntPtr.Zero;
@@ -118,6 +118,10 @@ function Uninstall($directory) {
     # uninstall copies itself to TEMP and removes it automatically.
     Remove-Item (Join-Path $directory 'Uninstall Yoru.exe') -Force -ErrorAction SilentlyContinue
     Assert-True (-not (Test-Path (Join-Path $directory 'Yoru.exe'))) 'Installed EXE survived uninstall'
+    foreach ($packaged in Get-ChildItem (Join-Path $root 'artifacts/Yoru-win32-x64') -Recurse -File) {
+        $relative = [IO.Path]::GetRelativePath((Join-Path $root 'artifacts/Yoru-win32-x64'), $packaged.FullName)
+        Assert-True (-not (Test-Path (Join-Path $directory $relative))) "Packaged file survived uninstall: $relative"
+    }
     Assert-True (-not (Test-Path $registryKey)) 'Uninstall registration survived'
     Assert-True (-not (Test-Path $desktopLink)) 'Desktop shortcut survived'
     Assert-True (-not (Test-Path $startLink)) 'Start shortcut survived'
