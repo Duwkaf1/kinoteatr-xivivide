@@ -67,3 +67,5 @@
 Принципы Fluent применены в рамках Electron: иерархия поверхностей, спокойное выделение, системная типографика, плотность, клавиатура и адаптация. Нативные WinUI/Mica-компоненты не заявляются. Платные зависимости, внешние дизайн-сервисы и водяные знаки не добавлены. Шрифты Windows используются из системы, новые шрифты без лицензии не распространяются.
 
 Справочные страницы Microsoft: [Fluent](https://fluent2.microsoft.design/), [Windows app design](https://learn.microsoft.com/windows/apps/design/), [Typography](https://learn.microsoft.com/windows/apps/design/style/typography). Их текущие веб-версии в этой среде отдельно не проверялись.
+
+Windows CI этой версии также [завершился успешно](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40173372346): unit/build/настоящий Electron с zoom и малым окном/package/ZIP/upload-artifact. Это подтверждено статусом job и всех шагов через GitHub API; полный архив логов из облачной сети не загружен. [Windows ZIP](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40173372346/artifacts/12590897532) хранится в Actions с ограниченным сроком хранения.
