@@ -116,6 +116,7 @@ try {
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('#performance-level').fill('2');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.artwork img')).opacity === '1');
   try {
     const artwork = page.waitForResponse(response => response.url().endsWith('/quality/miku-dance.png'));
     await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();

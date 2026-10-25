@@ -333,6 +333,7 @@ test('design preview at normal and minimum desktop widths has no horizontal over
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.locator('.anime-card').last().scrollIntoViewIfNeeded();
   await expect(page.locator('.artwork.has-poster')).toHaveCount(8);
+  for (const image of await page.locator('.artwork img').all()) await expect(image).toHaveCSS('opacity', '1');
   await page.locator('main').evaluate(element => element.scrollTo(0, 0));
   await page.screenshot({ path: 'test-results/design-library.png', fullPage: true });
   await page.setViewportSize({ width: 960, height: 680 });

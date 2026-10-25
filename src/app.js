@@ -299,7 +299,7 @@ for (const source of EXAMPLE_SITES) {
 
 function posterImage(url) {
   const image = node('img', undefined, 'poster-image');
-  image.onload = () => { image.dataset.ready = 'true'; };
+  image.addEventListener('load', () => { image.dataset.ready = 'true'; }, { once: true });
   image.alt = ''; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.src = url;
   return image;
 }
