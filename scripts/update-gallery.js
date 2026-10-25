@@ -15,8 +15,8 @@ const aliases = {
   'catalog-release.png': 'catalog-release-standard.png',
 };
 // Live network captures are reviewed separately; deterministic tests cannot recreate them.
-const liveCaptures = new Set(['catalog-live-home.png', 'catalog-live-player.png', 'catalog-live-player-alternative.png', 'catalog-live-filters.png']);
-const names = [...new Set([...readdirSync(gallery).filter(name => name.endsWith('.png') && name !== 'sources.png' && !liveCaptures.has(name)), 'loading-miku.png', 'catalog-home.png', 'catalog-release.png', 'custom-theme-safe.png', 'performance-smooth.png', 'library-empty-moon.png', 'catalog-filters.png', 'catalog-expanded.png'])];
+const liveCaptures = new Set(['catalog-live-home.png', 'catalog-live-player.png', 'catalog-live-player-alternative.png', 'catalog-live-filters.png', 'catalog-live-fallback-frieren.png', 'catalog-live-fallback-demon-slayer.png']);
+const names = [...new Set([...readdirSync(gallery).filter(name => name.endsWith('.png') && name !== 'sources.png' && !liveCaptures.has(name)), 'loading-miku.png', 'catalog-home.png', 'catalog-release.png', 'custom-theme-safe.png', 'performance-smooth.png', 'library-empty-moon.png', 'catalog-filters.png', 'catalog-expanded.png', 'settings-uninstall.png', 'catalog-fallback-poster.png'])];
 const copies = names.map(name => ({ from: path.join(captures, aliases[name] || name), to: path.join(gallery, name) }));
 // Check every source before replacing any published image.
 for (const { from } of copies) if (!statSync(from).isFile() || !statSync(from).size) throw new Error(`Missing capture: ${from}`);

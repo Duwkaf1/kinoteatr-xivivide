@@ -1,0 +1,52 @@
+{
+  "version": "0.8.2",
+  "date": "2026-10-25T18:33:09.458Z",
+  "metadataAndFallbackImagesMocked": false,
+  "primaryFailureInjected": true,
+  "results": [
+    {
+      "title": "Провожающая в последний путь Фрирен",
+      "id": 10661,
+      "releaseId": 10661,
+      "posterUrl": "https://anilibria.top/storage/releases/posters/9542/8UGD4dHHp1kdjquBph2CUSk9pLNsGtYw.webp",
+      "source": "anilibria",
+      "identity": {
+        "mal": 52991,
+        "shikimori": 52991,
+        "anilibria": 9542
+      }
+    },
+    {
+      "title": "Клинок, рассекающий демонов",
+      "id": 595,
+      "releaseId": 595,
+      "posterUrl": "https://anilibria.top/storage/releases/posters/8325/zLcjDIverP57Eu0Fp7BHVe8czgSLLvKY.webp",
+      "source": "anilibria",
+      "identity": {
+        "mal": 38000,
+        "shikimori": 38000,
+        "anilibria": 8325
+      }
+    }
+  ],
+  "pageErrors": [],
+  "imageResponses": [
+    {
+      "url": "https://anilibria.top/storage/releases/posters/9542/8UGD4dHHp1kdjquBph2CUSk9pLNsGtYw.webp",
+      "status": 200
+    },
+    {
+      "url": "https://anilibria.top/storage/releases/posters/9542/8UGD4dHHp1kdjquBph2CUSk9pLNsGtYw.webp",
+      "status": 200
+    },
+    {
+      "url": "https://anilibria.top/storage/releases/posters/8325/zLcjDIverP57Eu0Fp7BHVe8czgSLLvKY.webp",
+      "status": 200
+    },
+    {
+      "url": "https://anilibria.top/storage/releases/posters/8325/zLcjDIverP57Eu0Fp7BHVe8czgSLLvKY.webp",
+      "status": 200
+    }
+  ],
+  "injectedPrimaryFailures": 34
+}
