@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 trap {
     # Keep a bounded failure diagnosis in the Actions annotations as well as logs.
-    $diagnosis = "$($_.Exception.Message) ($($_.InvocationInfo.ScriptLineNumber))" -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+    $diagnosis = "$($_.Exception.Message) $($_.ScriptStackTrace)" -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
     Write-Host "::error title=Windows installer verification::$diagnosis"
     break
 }
@@ -39,6 +39,12 @@ public static class InstallerUI {
     [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
     [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] private static extern uint GetLongPathNameW(string path, StringBuilder result, uint capacity);
+    public static string LongPath(string path) {
+        var result = new StringBuilder(32768);
+        if (GetLongPathNameW(path, result, (uint)result.Capacity) == 0) throw new Exception("Shortcut path does not exist: " + path);
+        return result.ToString();
+    }
     private static string Text(IntPtr window) { var text = new StringBuilder(512); GetWindowTextW(window, text, text.Capacity); return text.ToString(); }
     private static bool Matches(IntPtr window, string name) {
         var className = new StringBuilder(64); GetClassNameW(window, className, className.Capacity);
@@ -106,8 +112,11 @@ function Assert-Installed($directory) {
     foreach ($link in @($desktopLink, $startLink)) {
         Assert-True (Test-Path $link) "Missing shortcut: $link"
         $shortcut = $shell.CreateShortcut($link)
-        Assert-True ($shortcut.TargetPath -eq (Join-Path $directory 'Yoru.exe')) 'Shortcut targets wrong application'
-        Assert-True ($shortcut.IconLocation -eq "$(Join-Path $directory 'Yoru.exe'),0") 'Shortcut uses wrong icon'
+        $expectedTarget = [InstallerUI]::LongPath((Join-Path $directory 'Yoru.exe'))
+        $actualTarget = [InstallerUI]::LongPath($shortcut.TargetPath)
+        Assert-True ($actualTarget -eq $expectedTarget) "Shortcut targets wrong application: $link -> '$actualTarget', expected '$expectedTarget'"
+        $iconParts = $shortcut.IconLocation -split ',(?=-?\d+$)', 2
+        Assert-True ($iconParts.Count -eq 2 -and $iconParts[1] -eq '0' -and [InstallerUI]::LongPath($iconParts[0]) -eq $expectedTarget) "Shortcut uses wrong icon: $($shortcut.IconLocation)"
     }
     Assert-True ([IO.File]::ReadAllText($sentinel) -eq $savedData) 'Personal profile was altered'
 }
@@ -148,6 +157,11 @@ try {
         # compressing Electron. The main CI job still tests the complete EXE.
         Uninstall $installDir
         if (Test-Path $installDir) { Remove-Item $installDir }
+        $customDir = Join-Path $env:TEMP "Yoru проверка $([guid]::NewGuid())"
+        Run-Silent $installer @('/S', "/D=$customDir")
+        Assert-Installed $customDir
+        Uninstall $customDir
+        if (Test-Path $customDir) { Remove-Item $customDir }
         return
     }
 
