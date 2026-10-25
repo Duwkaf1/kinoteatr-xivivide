@@ -57,7 +57,6 @@ export function castPanel({ $, node, active, persist, toast }) {
       }
       if (!character.actors.length) actors.append(node('span', 'Актёр озвучивания не указан', 'muted'));
       body.append(actors);
-      if (source) body.append(node('small', `Фото · ${character.photo?.source || 'AniDB'}`, 'character-photo-source'));
       card.append(portrait, body);
       $('#cast-list').append(card);
     }

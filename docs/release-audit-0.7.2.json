@@ -1,0 +1,89 @@
+{
+  "checked_at": "2026-10-25T13:20:10.412477+05:00",
+  "method": "Bounded GET through inherited proxy, system CA/TLS verification; no login or bypass",
+  "results": [
+    {
+      "name": "Yummyani",
+      "url": "https://old.yummyani.me/catalog?page=5",
+      "status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_read": 97010,
+      "limited": false,
+      "title": "Полный список каталог аниме на YummyAnime | Ями Аниме [Страница №5]",
+      "seconds": 1.07
+    },
+    {
+      "name": "AnimeJoy",
+      "url": "https://animejoy.ru/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 70950,
+      "limited": false,
+      "title": "AnimeJoy.Ru аниме с субтитрами онлайн",
+      "seconds": 0.86
+    },
+    {
+      "name": "TroutCDN example",
+      "url": "https://g0e-1ka1v5q.troutcdn.site/283290",
+      "status": 403,
+      "error": "Forbidden",
+      "seconds": 0.82
+    },
+    {
+      "name": "Brogiro example",
+      "url": "https://brogiro.cfd/series/283290/",
+      "status": 404,
+      "error": "Not Found",
+      "seconds": 0.85
+    },
+    {
+      "name": "Kinopoisk CX example",
+      "url": "https://kinopoisk.cx/series/749374/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "seconds": 0.53
+    },
+    {
+      "name": "AniDUB",
+      "url": "https://anidub.com/",
+      "status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_read": 71399,
+      "limited": false,
+      "title": "Лучшее аниме смотреть онлайн бесплатно - AniDUB Online, официальный сайт",
+      "seconds": 0.67
+    },
+    {
+      "name": "AniLiberty",
+      "url": "https://aniliberty.top/",
+      "status": 200,
+      "content_type": "text/html;charset=utf-8",
+      "bytes_read": 262144,
+      "limited": true,
+      "title": "AniLiberty — так звучит аниме!",
+      "seconds": 1.17
+    },
+    {
+      "name": "AniLibria public catalog",
+      "url": "https://anilibria.top/api/v1/anime/catalog/releases?limit=1",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes_read": 8415,
+      "limited": false,
+      "seconds": 0.77
+    }
+  ],
+  "media_check": {
+    "release_id": 8452,
+    "episode": 1,
+    "quality": 1080,
+    "media_host": "cache.libria.fun",
+    "error": "Tunnel connection failed: 403 Forbidden"
+  },
+  "release_metadata": {
+    "id": 8452,
+    "title": "Bleach / Блич",
+    "http_status": 200,
+    "episode_records": 357,
+    "notes": "Metadata only; no live episodes played. First 1080p HLS request was blocked by the proxy."
+  }
+}

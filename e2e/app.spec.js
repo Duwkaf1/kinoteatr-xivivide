@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { contrast } from '../src/custom-theme.js';
 
-let fixture; let directory;
+let fixture; let mp4Fixture; let directory;
 let hlsManifest;
 const posterCatalog = JSON.parse(readFileSync(new URL('../test/fixtures/posters/catalog.json', import.meta.url)));
 async function servePosters(page) {
@@ -19,6 +19,9 @@ test.beforeAll(() => {
   const hlsPath = path.join(directory, 'index.m3u8');
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:r=6', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '5', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '12', '-sc_threshold', '0', '-c:a', 'aac', '-hls_time', '2', '-hls_playlist_type', 'vod', '-hls_segment_filename', path.join(directory, 'segment%d.ts'), hlsPath]);
   hlsManifest = readFileSync(hlsPath);
+  const mp4Path = path.join(directory, 'test.mp4');
+  execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=320x180:r=12', '-f', 'lavfi', '-i', 'sine=frequency=660:sample_rate=48000', '-t', '8', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-movflags', '+faststart', mp4Path]);
+  mp4Fixture = readFileSync(mp4Path);
 });
 test.afterAll(() => rmSync(directory, { recursive: true, force: true }));
 const source = (id, voice = 'AniDUB', language = 'ru') => ({ id, voice, language, quality: 1080, url: `https://media.example.test/${id}.webm` });
@@ -29,15 +32,16 @@ async function seed(page, titles) {
 async function serveVideo(page) {
   await page.route('https://media.example.test/**', fulfillVideo);
 }
-function fulfillVideo(route) {
+function fulfillVideo(route) { return fulfillMedia(route,fixture,'video/webm'); }
+function fulfillMedia(route, data, contentType) {
   const range = route.request().headers().range;
   const match = range?.match(/^bytes=(\d+)-(\d*)$/);
   const start = match ? Number(match[1]) : 0;
-  const end = match && match[2] ? Math.min(Number(match[2]), fixture.length - 1) : fixture.length - 1;
-  if (start >= fixture.length) return route.fulfill({ status: 416, headers: { 'content-range': `bytes */${fixture.length}` } });
+  const end = match && match[2] ? Math.min(Number(match[2]), data.length - 1) : data.length - 1;
+  if (start >= data.length) return route.fulfill({ status: 416, headers: { 'content-range': `bytes */${data.length}` } });
   const headers = { 'accept-ranges': 'bytes', 'access-control-allow-origin': '*' };
-  if (match) headers['content-range'] = `bytes ${start}-${end}/${fixture.length}`;
-  return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: fixture.subarray(start, end + 1) });
+  if (match) headers['content-range'] = `bytes ${start}-${end}/${data.length}`;
+  return route.fulfill({ status: match ? 206 : 200, contentType, headers, body: data.subarray(start, end + 1) });
 }
 async function open(page) { await page.goto('http://127.0.0.1:5173'); }
 async function playerSettings(page) { if (!await page.locator('#player-settings-dialog').isVisible()) await page.locator('#open-player-settings').click(); }
@@ -199,6 +203,63 @@ test('HLS master with only 720p is rejected when 1080p is selected', async ({ pa
   await expect(page.locator('#playback-status')).toContainText('Качество не снижено');
   expect(requests).not.toContain('/index.m3u8');
 });
+
+for (const engine of ['standard','videojs']) {
+  test(`release audit: ${engine} decodes MP4/WebM/HLS and keeps studio/original choices`, async ({ page }) => {
+    test.setTimeout(60000);
+    const voices=['AniDUB','AniLibria','Русская'];
+    const titles=['mp4','webm','m3u8'].map((format,index)=>({...anime([{...source('media',voices[index]),url:`https://media.example.test/audit.${format}`},{...source('original','Оригинал','ja'),audioType:'original',url:`https://media.example.test/audit.${format}`}]),id:format,title:`Формат ${format}`}));
+    await seed(page,titles);
+    await page.addInitScript(engine=>localStorage.setItem('kadr.preferences.v1',JSON.stringify({watching:{engine}})),engine);
+    await page.route('https://media.example.test/**',route=>{
+      const name=new URL(route.request().url()).pathname;const headers={'access-control-allow-origin':'*'};
+      if(name==='/audit.mp4')return fulfillMedia(route,mp4Fixture,'video/mp4');
+      if(name==='/audit.webm'||name==='/episode2.webm')return fulfillVideo(route);
+      if(name==='/audit.m3u8')return route.fulfill({contentType:'application/vnd.apple.mpegurl',headers,body:'#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=250000,RESOLUTION=1920x1080\nindex.m3u8\n'});
+      if(name==='/index.m3u8')return route.fulfill({contentType:'application/vnd.apple.mpegurl',headers,body:hlsManifest});
+      if(/^\/segment\d+\.ts$/.test(name))return route.fulfill({contentType:'video/mp2t',headers,body:readFileSync(path.join(directory,name.slice(1)))});
+      return route.abort();
+    });
+    await open(page);
+    for (let index=0;index<titles.length;index++) {
+      await page.getByRole('button',{name:`Смотреть: ${titles[index].title}`,exact:true}).click();
+      if(await page.locator('#watch-audio-mode').inputValue()!=='dub') await page.locator('#watch-audio-mode').selectOption('dub');
+      await expect(page.locator('#playback-status')).toContainText(`${voices[index]} · 1080p · воспроизведение`);
+      await expect.poll(()=>page.locator('video').evaluate(v=>v.currentTime)).toBeGreaterThan(.2);
+      await expect.poll(()=>page.locator('video').evaluate(video=>video.webkitAudioDecodedByteCount||0)).toBeGreaterThan(0);
+      await page.locator('#watch-audio-mode').selectOption('original');await expect(page.locator('#playback-status')).toContainText('Оригинал · 1080p · воспроизведение');
+      await page.locator('video').evaluate(v=>{v.pause();v.currentTime=1;v.volume=.28;v.muted=true;});
+      await expect.poll(()=>page.locator('video').evaluate(v=>!v.seeking&&Math.round(v.currentTime)===1)).toBe(true);
+      await playerSettings(page);await page.locator('#player-engine').selectOption(engine==='standard'?'videojs':'standard');
+      await expect(page.locator('#playback-status')).toContainText('пауза');
+      await expect.poll(()=>page.locator('video').evaluate(v=>({paused:v.paused,volume:v.volume,muted:v.muted,time:Math.round(v.currentTime)}))).toEqual({paused:true,volume:.28,muted:true,time:1});
+      await page.locator('#player-engine').selectOption(engine);await closePlayerSettings(page);
+      await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();await expect(page.locator('video')).toHaveCount(0);
+    }
+  });
+  test(`release audit: switching ${engine} while metadata is loading preserves autoplay intent`, async ({ page }) => {
+    let held=false;let release;const gate=new Promise(resolve=>{release=resolve;});
+    await seed(page,[anime([source('loading')])]);await page.addInitScript(engine=>localStorage.setItem('kadr.preferences.v1',JSON.stringify({watching:{engine}})),engine);
+    await page.route('https://media.example.test/**',async route=>{if(!held){held=true;await gate;try{await fulfillVideo(route);}catch{/* The replaced request may have been cancelled. */}}else await fulfillVideo(route);});
+    try {
+      await open(page);await page.getByRole('button',{name:'Смотреть: Проверка плеера',exact:true}).click();await expect.poll(()=>held).toBe(true);
+      await playerSettings(page);await page.locator('#player-engine').selectOption(engine==='standard'?'videojs':'standard');release();await closePlayerSettings(page);
+      await expect(page.locator('#playback-status')).toContainText('воспроизведение');await expect.poll(()=>page.locator('video').evaluate(v=>v.currentTime)).toBeGreaterThan(.1);
+      await expect(page.locator('video')).toHaveJSProperty('paused',false);
+    } finally {release();}
+  });
+  test(`release audit: ${engine} recovers from server failure without foreign audio or lower quality`, async ({ page }) => {
+    const requests=[];
+    const data=anime([source('unavailable'),source('foreign','English','en'),{...source('low'),quality:720},source('backup','AniLibria')]);
+    await seed(page,[data]);await page.addInitScript(engine=>localStorage.setItem('kadr.preferences.v1',JSON.stringify({watching:{engine},playback:{attempts:1}})),engine);
+    await page.route('https://media.example.test/**',route=>{const path=new URL(route.request().url()).pathname;requests.push(path);return path==='/unavailable.webm'?route.fulfill({status:503,body:'Service unavailable'}):fulfillVideo(route);});
+    await open(page);await page.getByRole('button',{name:'Смотреть: Проверка плеера',exact:true}).click();
+    await expect(page.locator('#playback-status')).toContainText('AniLibria · 1080p · воспроизведение');
+    expect(requests).toContain('/unavailable.webm');expect(requests).toContain('/backup.webm');expect(requests).not.toContain('/foreign.webm');expect(requests).not.toContain('/low.webm');
+    await page.locator('video').evaluate(v=>{v.currentTime=v.duration-.1;v.play();});await expect(page.locator('#playing-title')).toContainText('Серия 2');
+    await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  });
+}
 
 test('500-title library renders one page, searches entire library, and batches load-more', async ({ page }) => {
   const titles = Array.from({ length: 500 }, (_, i) => ({ ...anime([source('a')]), id: `anime-${i}`, title: `История ${String(i).padStart(3, '0')}` }));
@@ -561,10 +622,18 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   await page.locator('#player-section').screenshot({ path: 'test-results/original-ass-player.png' });
   await playerSettings(page);
   await page.locator('#player-settings-dialog').screenshot({ path: 'test-results/player-settings.png' });
+  for(const engine of ['videojs','standard','videojs']) {
+    await page.locator('#player-engine').selectOption(engine);
+    await expect(page.locator('#subtitle-status')).toContainText('оформление автора');
+    await expect(page.locator('#video-host canvas')).toHaveCount(1);
+    await expect(page.locator('#playback-status')).toContainText('пауза');
+  }
   await closePlayerSettings(page);
   expect(errors).toEqual([]);
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await expect(page.locator('#video-host canvas')).toHaveCount(0);
+  await expect(page.locator('video')).toHaveCount(0);
+  expect(errors).toEqual([]);
   await page.reload();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('У каждого переводчика — свои слова.');
 });
@@ -718,6 +787,7 @@ test('archived AniDB cast displays real CDN portraits and actor photos in the so
   await page.locator('#cast-panel > summary').click();
   await page.locator('#anidb-xml').setInputFiles(new URL('../test/fixtures/characters/cast.xml', import.meta.url).pathname);
   await expect(page.locator('.cast-card')).toHaveCount(4);
+  await expect(page.locator('#cast-list')).not.toContainText('Фото ·');
   await page.locator('.cast-card').last().scrollIntoViewIfNeeded();
   await expect.poll(() => page.locator('.character-photo').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);
   await expect.poll(() => page.locator('.character-actor img').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);

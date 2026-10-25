@@ -1,5 +1,24 @@
 import { subtitleKind } from './media-labels.js';
 export const SUBTITLE_LIMIT = 2 * 1024 * 1024;
+function guardRendererDisposal(renderer) {
+  const dispose = renderer.dispose.bind(renderer); let disposed = false;
+  renderer.dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    // The pinned renderer assumes its canvas and video share a parent. Video.js
+    // can wrap/reparent the video after the renderer was attached. Reunite our
+    // nodes for teardown, including videos already detached by their engine.
+    let holder;
+    const video = renderer.video; const canvas = renderer.canvasParent;
+    if (video && canvas) {
+      const parent = video.parentNode || (holder = document.createElement('div'));
+      if (!video.parentNode) parent.append(video);
+      if (canvas.parentNode !== parent) parent.append(canvas);
+    }
+    try { dispose(); } finally { holder?.replaceChildren(); }
+  };
+  return renderer;
+}
 export async function boundedText(response, limit = SUBTITLE_LIMIT) {
   if (!response.ok) throw new Error(`Сервер ответил ${response.status}.`);
   if (Number(response.headers.get('content-length')) > limit) throw new Error('Файл слишком большой (максимум 2 МиБ).');
@@ -44,7 +63,7 @@ export function parseTextSubtitles(content, format) {
 export class SubtitleController {
   constructor(video, report) { this.video = video; this.report = report; this.serial = 0; this.native = video.addTextTrack('subtitles', 'Yoru'); this.native.mode = 'disabled'; }
   clear() {
-    this.serial++; this.request?.abort(); this.renderer?.dispose(); this.renderer = null;
+    this.serial++; this.request?.abort(); const renderer = this.renderer; this.renderer = null; renderer?.dispose();
     this.native.mode = 'hidden';
     for (const cue of [...(this.native.cues || [])]) this.native.removeCue(cue);
     this.native.mode = 'disabled';
@@ -60,13 +79,13 @@ export class SubtitleController {
         if (!/\[Script Info\]/i.test(content) || !/\[Events\]/i.test(content)) throw new Error('В файле нет данных для показа перевода с оформлением.');
         const { default: SubtitlesOctopus } = await import('libass-wasm');
         if (token !== this.serial) return;
-        this.renderer = new SubtitlesOctopus({ video: this.video, subContent: content,
+        this.renderer = guardRendererDisposal(new SubtitlesOctopus({ video: this.video, subContent: content,
           workerUrl: new URL('vendor/ass/subtitles-octopus-worker.js', document.baseURI).href,
           fallbackFont: new URL('fonts/LiberationSans-Regular.ttf', document.baseURI).href,
           timeOffset: -preferences.subtitleDelay, targetFps: economy ? 15 : 24, libassMemoryLimit: economy ? 12 : 32, libassGlyphLimit: economy ? 4 : 8,
           onReady: () => { if (token === this.serial) this.report(`${track.label} · оформление автора`); },
           onError: () => { if (token === this.serial) { this.clear(); this.report('Не удалось показать перевод с оформлением. Выбери другой вариант; видео продолжает работать.'); } },
-        });
+        }));
       } else {
         const cues = parseTextSubtitles(content, track.format);
         for (const cue of cues) {

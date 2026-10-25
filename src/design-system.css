@@ -312,7 +312,6 @@ kbd { display: inline-block; padding: 1px 4px; margin-right: 3px; border: 1px so
 .character-actors { display: grid; gap: 7px; max-height: 100px; overflow: auto; font-size: 11px; line-height: 1.6; }
 .character-actor { display: flex; align-items: center; gap: 7px; }
 .character-actor img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-.character-photo-source { display: block; margin-top: 12px; color: var(--subtle); font-size: 10px; }
 #cast-episode-editor { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; max-height: 240px; overflow: auto; margin: 18px 0; }
 #cast-episode-editor label { display: flex; align-items: start; gap: 8px; font-size: 12px; }
 .anidb-config { margin-top: 24px; }

@@ -417,8 +417,10 @@ function stopMedia() {
   generation++;
   clearTimeout(stallTimer);
   clearTimeout(loadingTimer);
-  cleanup(); cleanup = () => {};
+  // libass needs the video parent while removing its canvas. Dispose subtitles
+  // before aborting Video.js, which removes the video element from the DOM.
   viewing?.stop();
+  cleanup(); cleanup = () => {};
   if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
   if (hls) { hls.destroy(); hls = null; }
   document.body.classList.remove('is-playing');
@@ -453,7 +455,7 @@ function startEpisode(title, episode, time, session = {}) {
 }
 function restartSource(preferredSourceId = plan?.current?.id) {
   if (!active) return;
-  const session = video ? { paused: video.paused, muted: video.muted, volume: video.volume, rate: video.playbackRate, preferredSourceId } : { ...active.session, preferredSourceId };
+  const session = video ? { paused: active.session.paused, muted: video.muted, volume: video.volume, rate: video.playbackRate, preferredSourceId } : { ...active.session, preferredSourceId };
   startEpisode(active.title, active.episode, video?.currentTime || resumeAt, session);
 }
 function nextEpisode() {

@@ -17,7 +17,7 @@ try {
   application = await electron.launch({ executablePath: require('electron'), args, timeout: 30000 });
   const page = await application.firstWindow();
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => errors.push(error.stack || error.message));
   await page.waitForSelector('#hero-button');
   await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
   assert.ok(page.url().startsWith('file:'));
@@ -155,6 +155,35 @@ try {
   const apiRequests = await application.evaluate(() => globalThis.__anidbTestRequests);
   assert.equal(apiRequests.length, 1, 'AniDB cache must avoid a duplicate request');
   const apiURL = new URL(apiRequests[0]); assert.equal(apiURL.searchParams.get('aid'), '123'); assert.equal(apiURL.searchParams.get('client'), 'yorutestfixture');
+  const auditFiles = new Map();
+  for (const file of ['tone.mp4','index.m3u8','segment0.ts','segment1.ts','segment2.ts']) auditFiles.set(file, await readFile(path.join(root,'test/fixtures/playback',file)));
+  await page.route('https://media.example.invalid/audit/**', route => {
+    const name = new URL(route.request().url()).pathname.split('/').at(-1); const headers = {'access-control-allow-origin':'*'};
+    if (name === 'master.m3u8') return route.fulfill({headers,contentType:'application/vnd.apple.mpegurl',body:'#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=250000,RESOLUTION=1920x1080\nindex.m3u8\n'});
+    const body = auditFiles.get(name); if (!body) return route.abort();
+    if (name === 'tone.mp4') {
+      const range = route.request().headers().range?.match(/^bytes=(\d+)-(\d*)$/); const start = range ? Number(range[1]) : 0; const end = range?.[2] ? Math.min(Number(range[2]),body.length-1) : body.length-1;
+      headers['accept-ranges']='bytes'; if (range) headers['content-range']=`bytes ${start}-${end}/${body.length}`;
+      return route.fulfill({status:range?206:200,headers,contentType:'video/mp4',body:body.subarray(start,end+1)});
+    }
+    return route.fulfill({headers,contentType:name.endsWith('.ts')?'video/mp2t':'application/vnd.apple.mpegurl',body});
+  });
+  const auditTitles = ['mp4','hls'].map(format=>({id:`native-${format}`,title:`Проверка ${format}`,episodes:[{id:'1',number:1,sources:[{id:'ru',voice:'AniLibria',language:'ru',quality:1080,url:`https://media.example.invalid/audit/${format==='mp4'?'tone.mp4':'master.m3u8'}`},{id:'ja',voice:'Оригинал',language:'ja',audioType:'original',quality:1080,url:`https://media.example.invalid/audit/${format==='mp4'?'tone.mp4':'master.m3u8'}`}]}]}));
+  await page.locator('#import-file').setInputFiles({name:'native-audit.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(auditTitles))});
+  for (const engine of ['standard','videojs']) for (const title of auditTitles) {
+    await page.getByRole('button',{name:`Смотреть: ${title.title}`,exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('#playback-status').textContent.includes('воспроизведение'));
+    await page.locator('#open-player-settings').click(); await page.locator('#player-engine').selectOption(engine); await page.locator('#close-player-settings').click();
+    await page.waitForFunction(()=>{const v=document.querySelector('video');return v?.currentTime>.1&&v.videoHeight===1080&&v.webkitAudioDecodedByteCount>0;},undefined,{timeout:15000});
+    await page.locator('#watch-audio-mode').selectOption('original');
+    await page.waitForFunction(()=>document.querySelector('#playback-status').textContent.includes('Оригинал · 1080p · воспроизведение'));
+    await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();
+    assert.equal(await page.locator('video').count(),0);
+  }
+  console.log('PASS: real MP4 H.264/AAC and HLS decode video/audio in both engines; original mode and cleanup');
+  await page.getByRole('button',{name:'Смотреть: Проверка desktop',exact:true}).click();
+  await page.locator('#watch-audio-mode').selectOption('dub');
+  await page.waitForFunction(()=>document.querySelector('#playback-status').textContent.includes('воспроизведение'));
   assert.equal(await page.evaluate(async () => { try { await window.kadr.openWebPlayer('https://evil.test'); return false; } catch { return true; } }), true);
   await application.context().route('https://old.yummyani.me/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Website isolation fixture</title>' }));
   const websiteCreated = application.waitForEvent('window'); await page.evaluate(() => window.kadr.openWebPlayer('https://old.yummyani.me/catalog/item/example'));
