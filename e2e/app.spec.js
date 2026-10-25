@@ -976,6 +976,7 @@ test('simple settings have two tabs, a real right scrollbar, stable navigation a
   await page.locator('main').hover(); await page.mouse.wheel(0, 900);
   await expect.poll(() => page.locator('main').evaluate(e => e.scrollTop)).toBeGreaterThan(100);
   expect(await page.evaluate(() => document.documentElement.scrollTop)).toBe(0);
+  expect(await page.locator('main').evaluate(e => e.offsetWidth - e.clientWidth)).toBeGreaterThanOrEqual(12);
   expect((await page.getByRole('button', { name: 'Настройки', exact: true }).boundingBox()).y).toBe(box.y);
   await page.locator('main').evaluate(e => { e.scrollTop = 0; });
   const card = await page.locator('#performance-settings').boundingBox(); const heading = await page.locator('#performance-title').boundingBox();
