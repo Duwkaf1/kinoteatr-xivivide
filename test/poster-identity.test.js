@@ -22,3 +22,9 @@ test('conflicting season metadata stops all substitution; a missing primary sour
  const empty=await requestCatalog({kind:'poster',provider:'yummyani',releaseId:10661},{fetcher:async()=>new Response(JSON.stringify({response:{anime_id:10661,remote_ids:{}}}))});assert.equal(empty.posterUrl,null);
  await assert.rejects(requestCatalog({kind:'poster',provider:'anilibria',releaseId:10661}),/Некорректный/);await assert.rejects(requestCatalog({kind:'poster',provider:'yummyani',releaseId:10661,after:'https://evil.test'}),/Некорректный/);
 });
+
+test('poster requests are bounded, stale queued work aborts, and a selected release jumps ahead of background work',async()=>{
+ const {createAnimeCatalog}=await import('../src/anime-catalog.js');const order=[];const releases=new Map();let active=0,maxActive=0;
+ const api=createAnimeCatalog({transport:async data=>{order.push(data.releaseId);active++;maxActive=Math.max(maxActive,active);await new Promise(resolve=>releases.set(data.releaseId,resolve));active--;return {releaseId:data.releaseId,posterUrl:null};}});
+ const one=api.poster(1),two=api.poster(2);const cancel=new AbortController();const old=api.poster(3,{signal:cancel.signal}).catch(error=>error.name);const background=api.poster(4);const selected=api.poster(5,{priority:true});await new Promise(r=>setTimeout(r,0));cancel.abort();releases.get(1)();await one;await new Promise(r=>setTimeout(r,0));assert.deepEqual(order,[1,2,5]);assert.equal(await old,'AbortError');releases.get(2)();await two;await new Promise(r=>setTimeout(r,0));releases.get(5)();releases.get(4)();await Promise.all([selected,background]);assert.equal(maxActive,2);
+});

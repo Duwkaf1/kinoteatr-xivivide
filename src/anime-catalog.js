@@ -45,7 +45,9 @@ export function mergeCatalogTitle(fresh, saved) {
 export function createAnimeCatalog({ transport, now = Date.now } = {}) {
   const cache = new Map(); let cacheBytes=0;
   let posterActive=0;const posterQueue=[];
-  async function posterSlot(task){if(posterActive>=2)await new Promise(resolve=>posterQueue.push(resolve));posterActive++;try{return await task();}finally{posterActive--;posterQueue.shift()?.();}}
+  function startPosters(){while(posterActive<2&&posterQueue.length){const job=posterQueue.shift();job.signal?.removeEventListener('abort',job.abort);if(job.signal?.aborted){job.reject(job.signal.reason);continue;}posterActive++;Promise.resolve().then(job.task).then(job.resolve,job.reject).finally(()=>{posterActive--;startPosters();});}}
+  function posterSlot(task,{signal,priority=false}={}){signal?.throwIfAborted();return new Promise((resolve,reject)=>{const job={task,signal,resolve,reject,abort:()=>{const at=posterQueue.indexOf(job);if(at!==-1){posterQueue.splice(at,1);signal.removeEventListener('abort',job.abort);reject(signal.reason);}}};signal?.addEventListener('abort',job.abort,{once:true});if(priority)posterQueue.unshift(job);else posterQueue.push(job);startPosters();});}
+
   async function request(data,signal){
     if(transport)return transport(data,{signal});
     if(globalThis.window?.kadr?.catalogRequest){
@@ -70,7 +72,7 @@ export function createAnimeCatalog({ transport, now = Date.now } = {}) {
     return result;
   }
   return {
-    poster(releaseId,{after='',...options}={}){return posterSlot(()=>load(`poster:${releaseId}:${after}`,{kind:'poster',provider:'yummyani',releaseId,after},raw=>{if(raw?.releaseId!==releaseId)throw new Error('Не совпала обложка аниме.');return raw;},options));},
+    poster(releaseId,{after='',priority=false,...options}={}){const key=`poster:${releaseId}:${after}`;options.signal?.throwIfAborted();const hit=cache.get(key);if(hit&&now()-hit.time<120000)return Promise.resolve(hit.value);return posterSlot(()=>load(key,{kind:'poster',provider:'yummyani',releaseId,after},raw=>{if(raw?.releaseId!==releaseId)throw new Error('Не совпала обложка аниме.');return raw;},options),{signal:options.signal,priority});},
     genres({provider='anilibria',...options}={}){if(provider==='yummyani')return Promise.resolve(YUMMY_GENRES);return load('genres',{kind:'genres'},raw=>{
       if(!Array.isArray(raw))throw new Error('Не удалось загрузить жанры.');
       return raw.slice(0,100).filter(g=>Number.isSafeInteger(g?.id)&&g.id>0&&typeof g.name==='string').map(g=>({id:g.id,name:g.name.slice(0,60)})).sort((a,b)=>a.name.localeCompare(b.name,'ru'));

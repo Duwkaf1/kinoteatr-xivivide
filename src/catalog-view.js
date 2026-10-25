@@ -7,7 +7,10 @@ const searchText = value => String(value || '').toLocaleLowerCase('ru').replace(
 export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
   const api=createAnimeCatalog();let activated=false;let query='';let sort='popular';let page=1;let hasMore=false;let items=[];let searchTimer;let listRequest;let listSerial=0;let releaseRequest;let releaseSerial=0;let selected;let readyTitle;let opening=false;let opener;let websiteReady=false;
   let provider='anilibria';let genres=[];let age='';let genreOptions=[];let genresRequest;let randomRequest;let randomSerial=0;let lastRandomId;let pending=false;
-  const hideTimers=new Map();
+  const hideTimers=new Map();const posterRequests=new Map();const waitingPosters=new Map();let postersPaused=false;let posterDialogOpening=false;
+  const posterObserver=new MutationObserver(()=>{for(const [holder,controller]of posterRequests)if(!holder.isConnected){controller.abort();posterRequests.delete(holder);}for(const holder of waitingPosters.keys())if(!holder.isConnected)waitingPosters.delete(holder);});posterObserver.observe($('#catalog-grid'),{childList:true,subtree:true});posterObserver.observe($('#release-art'),{childList:true,subtree:true});
+  function resumePosters(){for(const [holder,run]of waitingPosters){if(!holder.isConnected)waitingPosters.delete(holder);else if(!postersPaused&&(!posterDialogOpening||holder.classList.contains('release-poster'))){waitingPosters.delete(holder);run();}}}
+  function cancelPosters(backgroundOnly=false){for(const [holder,controller]of posterRequests)if(!backgroundOnly||holder.classList.contains('catalog-poster'))controller.abort();}
   const progressFor=title=>Object.hasOwn(state.progress,title.id)?state.progress[title.id]:null;
   const motion=()=>document.body.dataset.profile==='quality'&&!document.body.classList.contains('less-motion')&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
   const message=error=>error?.name==='TimeoutError'?'Каталог долго не отвечает. Попробуй ещё раз.':navigator.onLine===false?'Нет соединения с интернетом. Сохранённая библиотека остаётся на устройстве.':String(error?.message||'Не удалось загрузить каталог.').replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '');
@@ -23,9 +26,12 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
     const unavailable=()=>{image.remove();missing();};
     const fallback=async(after='')=>{
       unavailable();if(!holder.isConnected)return;
-      try{const result=await api.poster(item.id,{after});if(!holder.isConnected||!result.posterUrl)return;
+      if(postersPaused||(posterDialogOpening&&className==='catalog-poster')){waitingPosters.set(holder,()=>fallback(after));return;}
+      posterRequests.get(holder)?.abort();const controller=new AbortController();posterRequests.set(holder,controller);
+      try{const result=await api.poster(item.id,{after,priority:className==='release-poster',signal:controller.signal});if(!holder.isConnected||!result.posterUrl)return;
         image.onerror=()=>result.source==='anilibria'?fallback('anilibria'):unavailable();image.src=result.posterUrl;placeholder.remove();holder.classList.remove('missing');holder.prepend(image);
-      }catch{}
+      }catch{if(controller.signal.aborted&&holder.isConnected)waitingPosters.set(holder,()=>fallback(after));}
+      finally{if(posterRequests.get(holder)===controller)posterRequests.delete(holder);}
     };
     image.onerror=()=>item.provider==='yummyani'?fallback():unavailable();
     if(item.posterUrl)image.src=item.posterUrl;else queueMicrotask(()=>fallback());holder.append(image);return holder;
@@ -109,7 +115,7 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
     finally{if(serial===randomSerial){$('#catalog-random').disabled=false;$('#catalog-random').setAttribute('aria-busy','false');$('#catalog-random-label').textContent='Случайное аниме';}}
   };
   $('#close-release').onclick=()=>$('#release-dialog').close();
-  $('#release-dialog').addEventListener('close',()=>{releaseSerial++;releaseRequest?.abort();opening=false;readyTitle=null;if(opener?.checkVisibility?.())opener.focus({preventScroll:true});else if(!$('#player-section').hidden){$('#playing-title').tabIndex=-1;$('#playing-title').focus({preventScroll:true});}});
+  $('#release-dialog').addEventListener('close',()=>{posterDialogOpening=false;$('#release-art').replaceChildren();queueMicrotask(resumePosters);releaseSerial++;releaseRequest?.abort();opening=false;readyTitle=null;if(opener?.checkVisibility?.())opener.focus({preventScroll:true});else if(!$('#player-section').hidden){$('#playing-title').tabIndex=-1;$('#playing-title').focus({preventScroll:true});}});
   function favoriteState(){const favorite=readyTitle&&state.favorites.includes(readyTitle.id);$('#catalog-favorite').setAttribute('aria-label',favorite?'Убрать из избранного':'В избранное');$('#catalog-favorite').title=favorite?'Убрать из избранного':'В избранное';$('#catalog-favorite').classList.toggle('is-favorite',Boolean(favorite));}
   function selection(){const progress=readyTitle&&progressFor(readyTitle);$('#catalog-play-label').textContent=selected?.provider==='yummyani'?'Смотреть на Yummyani':progress&&progress.episodeId===$('#catalog-episode').value&&progress.time>0?'Продолжить':'Смотреть';}
   $('#catalog-episode').onchange=selection;
@@ -120,7 +126,7 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
     $('#release-description').textContent=item.description||'Описание скоро появится.';
   }
   async function openRelease(item,{autoPlay=false,episodeId}={}){
-    opener=document.activeElement;releaseRequest?.abort();releaseRequest=new AbortController();const serial=++releaseSerial;selected=item;readyTitle=null;websiteReady=false;opening=true;
+    posterDialogOpening=true;cancelPosters(true);opener=document.activeElement;releaseRequest?.abort();releaseRequest=new AbortController();const serial=++releaseSerial;selected=item;readyTitle=null;websiteReady=false;opening=true;
     metadata(item);$('.release-actions').classList.toggle('website-actions',item.provider==='yummyani');$('.release-voice').textContent=item.provider==='yummyani'?'Плееры и переводы сайта Yummyani':'Русская озвучка · AniLibria';$('#catalog-favorite').hidden=item.provider==='yummyani';$('#catalog-episode').closest('label').hidden=item.provider==='yummyani';$('#catalog-play').disabled=true;$('#catalog-favorite').disabled=true;$('#catalog-episode').replaceChildren();$('#release-progress').textContent='';$('#release-state').textContent='Загружаем серии…';
     if(!$('#release-dialog').open)$('#release-dialog').showModal();
     try{
@@ -148,9 +154,9 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
   $('#catalog-play').onclick=watch;
   $('#catalog-favorite').onclick=()=>{if(!readyTitle)return;try{onFavorite(readyTitle);favoriteState();}catch(error){toast(message(error));}};
   return {
-    activate(){if(!activated){activated=true;load();}},
+    activate(){postersPaused=false;resumePosters();if(!activated){activated=true;load();}},
     focus(){this.activate();$('#catalog-search').focus();},
     playSaved(title,options={}){const item={id:title.catalog.releaseId,title:title.title,posterUrl:title.posterUrl||'',english:'',genres:[],description:'',episodes:title.episodes.length};return openRelease(item,{autoPlay:true,...options});},
-    pauseSearch(){clearTimeout(searchTimer);listRequest?.abort();listSerial++;cancelRandom();if(pending||!items.length)activated=false;pending=false;},
+    pauseSearch(){postersPaused=true;cancelPosters();clearTimeout(searchTimer);listRequest?.abort();listSerial++;cancelRandom();if(pending||!items.length)activated=false;pending=false;},
   };
 }
