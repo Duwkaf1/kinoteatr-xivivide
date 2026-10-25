@@ -45,3 +45,4 @@ if (binary.subarray(0, 2).toString() !== 'MZ') throw new Error('Installer is not
 const digest = createHash('sha256').update(binary).digest('hex');
 await writeFile(`${output}.sha256`, `${digest}  ${path.basename(output)}\n`);
 console.log(`Installer: ${output}\nSize: ${(binary.length / 1048576).toFixed(1)} MiB\nSHA256: ${digest}`);
+if (process.env.CI === 'true') console.log(`::notice title=Yoru installer::${path.basename(output)} | ${binary.length} bytes | SHA256 ${digest}`);
