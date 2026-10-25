@@ -87,9 +87,21 @@ export class SubtitleController {
           workerUrl: new URL('vendor/ass/subtitles-octopus-worker.js', document.baseURI).href,
           fallbackFont: new URL('fonts/LiberationSans-Regular.ttf', document.baseURI).href,
           timeOffset: -preferences.subtitleDelay, targetFps: economy ? 15 : 24, libassMemoryLimit: economy ? 12 : 32, libassGlyphLimit: economy ? 4 : 8,
-          onReady: () => { if (token === this.serial) this.report(`${track.label} · оформление автора`); },
           onError: () => { if (token === this.serial) { this.clear(); this.report('Не удалось показать перевод с оформлением. Выбери другой вариант; видео продолжает работать.'); } },
         }));
+        const renderer = this.renderer; const worker = renderer.worker;
+        const ready = event => {
+          if (event.data?.target !== 'ready' || token !== this.serial) return;
+          worker.removeEventListener('message', ready);
+          // A paused video may emit no timeupdate after this worker is created.
+          // Initialize its clock explicitly, after worker-init has been accepted.
+          renderer.resize(); renderer.setRate(this.video.playbackRate);
+          renderer.setIsPaused(this.video.paused, this.video.currentTime + renderer.timeOffset);
+          this.report(`${track.label} · оформление автора`);
+        };
+        worker.addEventListener('message', ready);
+        const dispose = renderer.dispose.bind(renderer);
+        renderer.dispose = () => { worker.removeEventListener('message', ready); dispose(); };
       } else {
         const cues = parseTextSubtitles(content, track.format);
         for (const cue of cues) {

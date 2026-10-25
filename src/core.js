@@ -1,4 +1,5 @@
 import { subtitleEntries, seasonEntries, animeId, languageCode, webPlayerEntries } from './media-schema.js';
+export const MAX_LIBRARY_TITLES = 500;
 export const EXAMPLE_SITES = Object.freeze([
   { id: 'trout', name: 'TroutCDN', url: 'https://g0e-1ka1v5q.troutcdn.site/283290', description: 'Страница из твоего примера · ID 283290' },
   { id: 'brogiro', name: 'Brogiro', url: 'https://brogiro.cfd/series/283290/', description: 'Страница сериала из твоего примера · ID 283290' },
@@ -20,7 +21,7 @@ export function voiceRank(voice) {
 }
 
 export function validateLibrary(data) {
-  if (!Array.isArray(data) || data.length > 500) throw new Error('Ожидается список не более чем из 500 аниме.');
+  if (!Array.isArray(data) || data.length > MAX_LIBRARY_TITLES) throw new Error(`Ожидается список не более чем из ${MAX_LIBRARY_TITLES} аниме.`);
   const ids = new Set();
   return data.map(title => {
     if (!title || typeof title.id !== 'string' || !title.id || ids.has(title.id)) throw new Error('У каждого аниме должен быть уникальный id.');

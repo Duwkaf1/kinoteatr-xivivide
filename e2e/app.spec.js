@@ -1063,3 +1063,16 @@ test('local subtitle import uses the credited translator instead of the filename
   await expect(page.locator('#subtitle-selector')).toContainText('Проверяемое имя переводчика');
   await expect(page.locator('#subtitle-selector')).not.toContainText('Студия B');
 });
+
+test('ASS subtitles added while paused render the current frame after worker initialization', async ({page})=>{
+  await seed(page,[anime([source('paused-ass')])]);await serveVideo(page);await open(page);
+  await page.getByRole('button',{name:'Смотреть: Проверка плеера',exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await page.locator('video').evaluate(v=>{v.pause();v.currentTime=3;});await page.waitForFunction(()=>{const v=document.querySelector('video');return !v.seeking&&v.currentTime>=3;});
+  await page.waitForTimeout(160);
+  await playerSettings(page);await page.locator('#edit-media').click();
+  const ass=readFileSync(new URL('../test/fixtures/translator.ass',import.meta.url),'utf8').replace('0:00:00.00,0:00:08.00','0:00:03.00,0:00:04.00');
+  await page.locator('#subtitle-file').setInputFiles({name:'paused.ass',mimeType:'text/plain',buffer:Buffer.from(ass)});await page.getByRole('button',{name:'Добавить перевод',exact:true}).click();await page.locator('#close-media-dialog').click();
+  await expect(page.locator('#subtitle-status')).toContainText('оформление автора');
+  await expect.poll(()=>page.locator('#video-host canvas').evaluate(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0)),{timeout:5000}).toBe(true);
+  await expect(page.locator('video')).toHaveJSProperty('paused',true);
+});

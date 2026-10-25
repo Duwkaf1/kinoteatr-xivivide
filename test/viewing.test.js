@@ -3,10 +3,17 @@ import assert from 'node:assert/strict';
 import { rankSources, PlaybackPlan, validateLibrary } from '../src/core.js';
 import { parseTextSubtitles } from '../src/subtitles.js';
 import { fixedQualityManifest } from '../src/alternate-player.js';
-import { defaultWatching, validateWatching, episodeOriginalLanguage } from '../src/watching.js';
+import { defaultWatching, validateWatching, validateSubtitleSelection, episodeOriginalLanguage } from '../src/watching.js';
 import { castForEpisode, anidbPage, anidbReleaseId } from '../src/anidb.js';
 import { webPlayerURL } from '../src/media-schema.js';
 const source = (id, language, audioType, quality = 1080) => ({ id, voice: 'Перевод', url: `https://media.test/${id}.mp4`, language, audioType, quality });
+test('subtitle choice uses bounded episode identity and safely migrates older preferences', () => {
+  const choice = { titleId: 'title', episodeId: 'episode', trackId: 'second-variant', sourceId: '' };
+  assert.deepEqual(validateWatching({ subtitleSelection: choice }).subtitleSelection, choice);
+  assert.notEqual(validateSubtitleSelection(choice), choice);
+  assert.equal(validateWatching({ subtitleVariant: 'Мой перевод' }).subtitleSelection, null);
+  for (const invalid of [null, [], 'track', {}, { ...choice, trackId: '' }, { ...choice, sourceId: 12 }, { ...choice, titleId: 'x'.repeat(2049) }]) assert.equal(validateSubtitleSelection(invalid), null);
+});
 test('cast setup accepts anime page links while old numeric identities remain compatible', () => {
   assert.equal(anidbReleaseId('https://anidb.net/anime/128#characterlist'), 128);
   assert.equal(anidbReleaseId(' 128 '), 128);

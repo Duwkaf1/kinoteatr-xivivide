@@ -10,7 +10,7 @@ export function castPanel({ $, node, active, persist, toast }) {
     const data = cache[releaseId]; const character = data?.characters.find(item => item.id === characterId);
     if (!character) throw new Error('Данные персонажа изменились. Открой выбор фотографии заново.');
     if (photo) character.photo = validateCharacterPhoto(photo); else delete character.photo;
-    save(data); render(); toast('Фотография персонажа сохранена.');
+    const saved = save(data); render(); toast(saved ? 'Фотография персонажа сохранена.' : 'Фотография изменена только до закрытия приложения: не удалось сохранить её.');
   } });
   const season = () => Number($('#cast-season').value) || 1;
   const mapping = () => active()?.title.seasons?.find(item => item.number === season());
@@ -18,7 +18,7 @@ export function castPanel({ $, node, active, persist, toast }) {
   const message = text => { $('#cast-status').textContent = text; $('#cast-settings-status').textContent = text; };
   $('#open-cast-settings').onclick = () => { $('#cast-settings-status').textContent = ''; $('#cast-settings-dialog').showModal(); };
   for (const selector of ['#close-cast-settings', '#done-cast-settings']) $(selector).onclick = () => $('#cast-settings-dialog').close();
-  function save(data) { cache[data.id] = data; try { saveCastCache(cache); } catch { toast('Каст показан до закрытия приложения: не удалось сохранить его на диске.'); } }
+  function save(data) { cache[data.id] = data; try { saveCastCache(cache); return true; } catch { toast('Каст показан до закрытия приложения: не удалось сохранить его на диске.'); return false; } }
   function render() {
     details.flush();
     serial++; const value = active(); if (!value) return;
@@ -81,7 +81,7 @@ export function castPanel({ $, node, active, persist, toast }) {
     try {
       const value = active(); const entry = { ...(mapping() || {}), number: season(), anidbId: anidbReleaseId($('#anidb-id').value) };
       value.title.seasons = [...(value.title.seasons || []).filter(item => item.number !== season()), entry].sort((a, b) => a.number - b.number);
-      persist(); render(); $('#cast-settings-status').textContent = 'Страница сохранена. Если список ещё пуст, выбери способ загрузки ниже.';
+      const saved = persist(); render(); $('#cast-settings-status').textContent = saved ? 'Страница сохранена. Если список ещё пуст, выбери способ загрузки ниже.' : 'Ссылка применена только до закрытия приложения: не удалось сохранить её.';
     } catch (error) { $('#cast-settings-status').textContent = error.message; }
   };
   async function open(episode = false) {
@@ -101,7 +101,7 @@ export function castPanel({ $, node, active, persist, toast }) {
       if (!file || file.size > 2 * 1024 * 1024) throw new Error('Нужен XML-файл до 2 МиБ.');
       const data = parseAniDB(await file.text(), target);
       if (token !== serial) return;
-      save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = 'Персонажи добавлены. Можно закрыть настройки.';
+      const saved = save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = saved ? 'Персонажи добавлены. Можно закрыть настройки.' : 'Персонажи добавлены только до закрытия приложения: не удалось сохранить их.';
     } catch (error) { if (token === serial) message(error.message); }
     event.target.value = '';
   };
@@ -114,7 +114,7 @@ export function castPanel({ $, node, active, persist, toast }) {
       if (!client) throw new Error('Для API нужно зарегистрированное имя клиента AniDB. Укажи его ниже или импортируй XML.');
       const xml = await window.kadr.fetchAniDB({ id: target, client, version });
       if (token !== serial) return;
-      const data = parseAniDB(xml, target); save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = 'Список обновлён.';
+      const data = parseAniDB(xml, target); const saved = save(mergeCastPhotos(data, cache[target])); render(); $('#cast-settings-status').textContent = saved ? 'Список обновлён.' : 'Список обновлён только до закрытия приложения: не удалось сохранить его.';
     } catch (error) { if (token === serial) message(`Не удалось обновить: ${error.message}`); }
     finally { button.disabled = false; }
   };
@@ -123,7 +123,7 @@ export function castPanel({ $, node, active, persist, toast }) {
     data.manualEpisodes ||= {}; data.manualEpisodes[String(active().episode.number)] = [...$('#cast-episode-editor').querySelectorAll('input:checked')].map(input => Number(input.value));
     data.updatedAt = Date.now(); save(data); $('#cast-scope').value = 'episode'; render();
   };
-  const config = (() => { try { return JSON.parse(localStorage.getItem('yoru.anidb.client') || '{}'); } catch { return {}; } })();
+  const config = (() => { try { const value = JSON.parse(localStorage.getItem('yoru.anidb.client') || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; } catch { return {}; } })();
   $('#anidb-client').value = typeof config.client === 'string' ? config.client.slice(0, 32) : ''; $('#anidb-client-version').value = Number.isInteger(config.version) && config.version > 0 ? config.version : 1;
   for (const input of [$('#anidb-client'), $('#anidb-client-version')]) input.onchange = () => {
     if (!input.checkValidity()) return;

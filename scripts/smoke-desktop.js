@@ -104,15 +104,27 @@ try {
   await page.waitForFunction(() => document.querySelector('.artwork img')?.naturalWidth > 0);
   assert.equal(await page.locator('.artwork img').getAttribute('src'), poster.posterUrl);
   const media = await readFile(path.join(root, 'test/fixtures/tone.webm'));
-  await page.route('https://media.example.invalid/desktop.webm', route => {
+  let releaseVideo; const videoGate = new Promise(resolve => { releaseVideo = resolve; });
+  await page.route('https://media.example.invalid/desktop.webm', async route => {
+    await videoGate;
     const match = route.request().headers().range?.match(/^bytes=(\d+)-(\d*)$/);
     const start = match ? Number(match[1]) : 0; const end = match?.[2] ? Math.min(Number(match[2]), media.length - 1) : media.length - 1;
     const headers = { 'access-control-allow-origin': '*', 'accept-ranges': 'bytes' };
     if (match) headers['content-range'] = `bytes ${start}-${end}/${media.length}`;
     return route.fulfill({ status: match ? 206 : 200, contentType: 'video/webm', headers, body: media.subarray(start, end + 1) });
   });
-  await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('#performance-level').fill('2');
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  try {
+    const artwork = page.waitForResponse(response => response.url().endsWith('/quality/miku-dance.png'));
+    await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
+    await page.waitForFunction(() => { const sprite = document.querySelector('.miku-sprite'); return sprite && getComputedStyle(sprite).animationName === 'miku-dance'; });
+    assert.equal((await artwork).ok(), true, 'Quality artwork exists in the installed file:// application');
+    assert.equal(await page.locator('#playback-loading').isVisible(), true);
+  } finally { releaseVideo(); }
   await page.waitForFunction(() => { const video = document.querySelector('video'); return video?.currentTime > 0 && video.videoHeight === 90; }, undefined, { timeout: 15000 });
+  assert.equal(await page.locator('#playback-loading').count(), 0);
   assert.equal(await page.locator('video').evaluate(v => v.volume), 0.55);
   assert.equal(await page.locator('video').evaluate(v => v.playbackRate), 1.25);
   await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 0.5; v.volume = 0.41; v.muted = true; });

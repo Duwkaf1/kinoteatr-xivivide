@@ -3,9 +3,10 @@ import { webPlayerURL } from './media-schema.js';
 import { SubtitleController } from './subtitles.js';
 import { languageName, subtitleKind } from './media-labels.js';
 import { subtitleCredit } from './subtitle-credit.js';
+import { validateSubtitleSelection } from './watching.js';
 
 export function viewingControls({ $, node, preferences, persist, savePreferences, toast, active, video, hls, currentSource, restart }) {
-  let controller; let detach = () => {}; let currentTrack;
+  let controller; let detach = () => {};
   const option = (value, text) => { const element = node('option', text); element.value = value; return element; };
   $('#open-player-settings').onclick = () => $('#player-settings-dialog').showModal();
   $('#close-player-settings').onclick = () => $('#player-settings-dialog').close();
@@ -32,7 +33,6 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
   }
   function selectTrack() {
     const selected = tracks().find(track => track.id === $('#subtitle-selector').value);
-    currentTrack = selected;
     const authored = ['ass', 'ssa'].includes(selected?.format);
     $('#subtitle-size').disabled = authored; $('#subtitle-background').disabled = authored;
     $('#subtitle-delay').disabled = Boolean(selected?.native || selected?.id.startsWith('hls:'));
@@ -48,7 +48,9 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
   }
   function subtitles() {
     const choices = tracks(); const preferred = preferences.watching.subtitleVariant;
-    const chosen = preferred === 'off' ? null : choices.find(track => track.label === preferred) || (active()?.watching.audioMode === 'original' ? choices.find(track => track.language === preferences.watching.subtitleLanguage) : null);
+    const saved = preferences.watching.subtitleSelection; const value = active();
+    const exact = saved && saved.titleId === value?.title.id && saved.episodeId === value?.episode.id && (!saved.sourceId || saved.sourceId === currentSource()?.id) ? choices.find(track => track.id === saved.trackId) : null;
+    const chosen = preferred === 'off' ? null : exact || choices.find(track => track.label === preferred) || (value?.watching.audioMode === 'original' ? choices.find(track => track.language === preferences.watching.subtitleLanguage) : null);
     $('#subtitle-selector').replaceChildren(option('off', 'Без субтитров'), ...choices.map(track => option(track.id, `${track.label}${track.language !== 'ru' ? ` · ${languageName(track.language)}` : ''}${choices.filter(item => item.label === track.label).length > 1 ? ` · ${subtitleKind(track.format)}` : ''}`)));
     $('#subtitle-selector').value = chosen?.id || 'off'; selectTrack();
     if (!controller && active()?.episode.webPlayers?.length) report('Перевод сайта выбирается в его отдельном окне.');
@@ -68,9 +70,14 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
     } catch { toast('Не удалось открыть плеер сайта.'); }
   };
   $('#subtitle-selector').onchange = () => {
-    preferences.watching.subtitleVariant = tracks().find(track => track.id === $('#subtitle-selector').value)?.label || 'off';
+    rememberTrack(tracks().find(track => track.id === $('#subtitle-selector').value));
     savePreferences(); selectTrack();
   };
+  function rememberTrack(track) {
+    const value = active();
+    preferences.watching.subtitleVariant = track?.label || 'off';
+    preferences.watching.subtitleSelection = track && value ? validateSubtitleSelection({ titleId: value.title.id, episodeId: value.episode.id, trackId: track.id, sourceId: track.native || track.id.startsWith('hls:') ? currentSource()?.id || '' : '' }) : null;
+  }
   function attach(element) {
     controller?.dispose(); detach(); controller = new SubtitleController(element, report);
     const update = () => subtitles(); element.textTracks.addEventListener('addtrack', update);
@@ -80,7 +87,7 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
   function updateEpisode(fields) {
     const value = active(); if (!value) throw new Error('Сначала выбери аниме.');
     const checked = validateLibrary([{ ...value.title, episodes: value.title.episodes.map(episode => episode === value.episode ? { ...episode, ...fields } : episode) }])[0];
-    Object.assign(value.episode, checked.episodes.find(episode => episode.id === value.episode.id)); persist(); sources();
+    Object.assign(value.episode, checked.episodes.find(episode => episode.id === value.episode.id)); const saved = persist(); sources(); return saved;
   }
   function renderEntries() {
     const value = active(); if (!value) return;
@@ -105,12 +112,12 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
     try {
       const data = new FormData(event.currentTarget); const original = data.get('audioType') === 'original';
       if (data.get('kind') === 'web') {
-        updateEpisode({ webPlayers: [...(active().episode.webPlayers || []), { id: crypto.randomUUID(), label: data.get('label'), url: webPlayerURL(data.get('url')) }] });
-        renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast('Плеер сайта добавлен в список источников.'); return;
+        const saved = updateEpisode({ webPlayers: [...(active().episode.webPlayers || []), { id: crypto.randomUUID(), label: data.get('label'), url: webPlayerURL(data.get('url')) }] });
+        renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast(saved ? 'Плеер сайта добавлен в список источников.' : 'Плеер добавлен только до закрытия приложения: не удалось сохранить его.'); return;
       }
       const source = { id: crypto.randomUUID(), label: data.get('label'), url: data.get('url'), voice: original ? 'Оригинал' : data.get('voice'), audioType: original ? 'original' : 'dub', language: original ? 'ja' : 'ru', quality: Number(data.get('quality')) };
       if (!/\.(mp4|webm|m3u8)(?:$|\?)/i.test(source.url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8.');
-      updateEpisode({ sources: [...active().episode.sources, source] }); renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast('Источник добавлен. Его можно выбрать в списке плееров.');
+      const saved = updateEpisode({ sources: [...active().episode.sources, source] }); renderEntries(); $('#source-form-error').textContent = ''; event.currentTarget.reset(); toast(saved ? 'Источник добавлен. Его можно выбрать в списке плееров.' : 'Источник добавлен только до закрытия приложения: не удалось сохранить его.');
     } catch (error) { $('#source-form-error').textContent = error.message; }
   };
   $('#add-subtitle-form').onsubmit = async event => {
@@ -123,11 +130,11 @@ export function viewingControls({ $, node, preferences, persist, savePreferences
       const track = { id: crypto.randomUUID(), label: fields.get('label').trim(), language: fields.get('language'), format: fields.get('format'), ...(file ? { content: new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer()) } : { url: fields.get('url') }), ...(fields.get('sourceId') ? { sourceId: fields.get('sourceId') } : {}) };
       track.label = subtitleCredit(track);
       if (active() !== value) throw new Error('Серия изменилась. Открой её настройки заново.');
-      updateEpisode({ subtitles: [...(value.episode.subtitles || []), track] }); preferences.watching.subtitleVariant = track.label; preferences.watching.subtitleFormat = 'all'; $('#subtitle-format').value = 'all'; savePreferences(); renderEntries(); subtitles();
-      $('#subtitle-form-error').textContent = ''; form.reset(); toast('Вариант субтитров добавлен и сохранён.');
+      const saved = updateEpisode({ subtitles: [...(value.episode.subtitles || []), track] }); rememberTrack(track); preferences.watching.subtitleFormat = 'all'; $('#subtitle-format').value = 'all'; savePreferences(); renderEntries(); subtitles();
+      $('#subtitle-form-error').textContent = ''; form.reset(); toast(saved ? 'Вариант субтитров добавлен и сохранён.' : 'Перевод добавлен только до закрытия приложения: не удалось сохранить его.');
     } catch (error) { $('#subtitle-form-error').textContent = error.message; }
     finally { submit.disabled = false; }
   };
   $('#subtitle-file').onchange = () => { const file = $('#subtitle-file').files[0]; if (!file) return; const ext = file.name.split('.').pop().toLowerCase(); if (['vtt', 'srt', 'ass', 'ssa'].includes(ext)) $('#add-subtitle-form [name="format"]').value = ext; };
-  return { sources, subtitles, attach, stop: () => { detach(); controller?.dispose(); controller = null; currentTrack = null; }, restyle: () => { if (currentTrack) selectTrack(); } };
+  return { sources, subtitles, attach, stop: () => { detach(); controller?.dispose(); controller = null; } };
 }

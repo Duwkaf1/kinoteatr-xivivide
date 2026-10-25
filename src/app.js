@@ -1,4 +1,4 @@
-import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL } from './core.js';
+import { EXAMPLE_SITES, PlaybackPlan, validateLibrary, httpsURL, MAX_LIBRARY_TITLES } from './core.js';
 import { loadState, saveState, savePlaybackState } from './storage.js';
 import { icon, decorateIcons } from './icons.js';
 import { loadPreferences, savePreferences, profileConfig, shouldReduceMotion, validatePreferences, defaultManual, defaultPlayback, defaultInterface } from './preferences.js';
@@ -9,6 +9,7 @@ import { castPanel } from './cast-panel.js';
 import { languageCode } from './media-schema.js';
 import { episodeOriginalLanguage } from './watching.js';
 import { settingsControls } from './settings-controls.js';
+import { playbackLoading } from './playback-loading.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -35,6 +36,7 @@ let viewing; let casts;
 let overviewPosters = '';
 let settingsUI;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const loading = playbackLoading({ host: $('#video-host'), preferences, reducedMotion });
 decorateIcons();
 function applyPreferences() {
   applyCustom(document.documentElement, preferences.custom);
@@ -65,6 +67,7 @@ function applyPreferences() {
   const reduce = shouldReduceMotion(preferences, reducedMotion.matches);
   document.body.classList.toggle('less-motion', reduce);
   document.body.classList.toggle('economy-mode', preferences.profile === 'economy');
+  loading.refresh();
   if (reduce) for (const animation of document.getAnimations()) animation.cancel();
   $('#animations-setting').checked = preferences.animations;
   $('#animations-setting').disabled = preferences.profile === 'economy';
@@ -157,8 +160,8 @@ function toast(message) {
   toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 7000);
 }
 function persist(playbackOnly = false) {
-  if (!writable) return;
-  try { if (playbackOnly) savePlaybackState(state); else saveState(state); } catch { writable = false; toast('Не удалось сохранить изменения. Проверь свободное место и настройки хранения.'); }
+  if (!writable) return false;
+  try { if (playbackOnly) savePlaybackState(state); else saveState(state); return true; } catch { writable = false; toast('Не удалось сохранить изменения. Проверь свободное место и настройки хранения.'); return false; }
 }
 function status(message) { $('#playback-status').textContent = message; }
 function recordProgress(force = false) {
@@ -296,6 +299,7 @@ for (const source of EXAMPLE_SITES) {
 
 function posterImage(url) {
   const image = node('img', undefined, 'poster-image');
+  image.onload = () => { image.dataset.ready = 'true'; };
   image.alt = ''; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.src = url;
   return image;
 }
@@ -370,7 +374,7 @@ $('#poster-form').onsubmit = event => {
       delete posterTarget.posterUrl; delete posterTarget.anilibriaId;
       if (url) posterTarget.posterUrl = url;
       if (url && selectedRelease) posterTarget.anilibriaId = selectedRelease.id;
-      persist(); renderLibrary(); toast('Обложка сохранена.');
+      const saved = persist(); renderLibrary(); toast(saved ? 'Обложка сохранена.' : 'Обложка изменена только до закрытия приложения: не удалось сохранить её.');
     } else {
       addPosterInput.value = url; addPosterId = url && selectedRelease ? selectedRelease.id : null;
       if (!$('#add-form [name="title"]').value && selectedRelease) $('#add-form [name="title"]').value = selectedRelease.title;
@@ -386,15 +390,16 @@ $('#add-form').onsubmit = event => {
   event.preventDefault();
   try {
     const fields = new FormData(event.currentTarget);
+    if (state.titles.length >= MAX_LIBRARY_TITLES) throw new Error(`В библиотеке можно хранить не больше ${MAX_LIBRARY_TITLES} аниме.`);
     const url = httpsURL(fields.get('url'));
     const website = fields.get('kind') === 'web';
     if (!website && !/\.(m3u8|mp4|webm)(?:$|\?)/i.test(url)) throw new Error('Нужна прямая ссылка MP4, WebM или M3U8. Для страницы сайта выбери тип «Плеер сайта».');
     const original = fields.get('audioType') === 'original';
     const title = { id: crypto.randomUUID(), title: fields.get('title'), posterUrl: fields.get('posterUrl'), ...(addPosterId ? { anilibriaId: addPosterId } : {}), episodes: [{ id: '1', number: 1, sources: [{ id: '1', url, voice: original ? 'Оригинал' : fields.get('voice'), language: original ? 'ja' : 'ru', audioType: original ? 'original' : 'dub', quality: Number(fields.get('quality')) }] }] };
     if (website) { title.episodes[0].sources = []; title.episodes[0].webPlayers = [{ id: 'web-1', label: new URL(url).hostname, url }]; }
-    state.titles.push(validateLibrary([title])[0]); persist();
+    state.titles.push(validateLibrary([title])[0]); const saved = persist();
     if (!website) { preferences.watching.audioMode = original ? 'original' : 'dub'; if (original) preferences.watching.originalLanguage = 'ja'; storePreferences(); applyPreferences(); }
-    $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast('Добавлено в библиотеку.');
+    $('#add-dialog').close(); event.currentTarget.reset(); addPosterId = null; renderLibrary(); toast(saved ? 'Добавлено в библиотеку.' : 'Аниме добавлено только до закрытия приложения: не удалось сохранить библиотеку.');
   } catch (error) { $('#form-error').textContent = error.message; }
 };
 $('#search').oninput = () => { cancelAnimationFrame(searchTimer); visibleCount = pageSize(); searchTimer = requestAnimationFrame(renderLibrary); };
@@ -406,12 +411,16 @@ $('#import-file').onchange = async event => {
     const imported = validateLibrary(JSON.parse(await file.text()));
     const oldIds = new Set(state.titles.map(t => t.id));
     if (imported.some(t => oldIds.has(t.id))) throw new Error('В библиотеке уже есть такой id. Измени id в файле; существующие записи не перезаписаны.');
-    state.titles = validateLibrary([...state.titles, ...imported]); persist(); renderLibrary(); toast(`Добавлено аниме: ${imported.length}.`);
+    if (state.titles.length + imported.length > MAX_LIBRARY_TITLES) throw new Error(`В библиотеке можно хранить не больше ${MAX_LIBRARY_TITLES} аниме.`);
+    // Existing entries are already validated. Keep their identity: an open
+    // player, cast editor or poster picker may still hold one of these objects.
+    state.titles.push(...imported); const saved = persist(); renderLibrary(); toast(saved ? `Добавлено аниме: ${imported.length}.` : 'Импорт доступен только до закрытия приложения: не удалось сохранить библиотеку.');
   } catch (error) { toast(`Импорт не выполнен: ${error.message}`); }
   event.target.value = '';
 };
 
 function stopMedia() {
+  loading.hide();
   generation++;
   clearTimeout(stallTimer);
   clearTimeout(loadingTimer);
@@ -478,6 +487,7 @@ async function startSource() {
   const configure = () => { element.volume = active.session.volume; element.muted = active.session.muted; element.defaultPlaybackRate = active.session.rate; element.playbackRate = active.session.rate; };
   configure();
   element.setAttribute('aria-label', 'Видеоплеер'); $('#video-host').append(element);
+  loading.show();
   const listeners = [];
   const on = (name, fn) => { element.addEventListener(name, fn); listeners.push([name, fn]); };
   const request = new AbortController(); let alternate;
@@ -498,12 +508,12 @@ async function startSource() {
   };
   const watchdog = () => {
     clearTimeout(stallTimer);
-    if (!element.paused && !element.ended && token === generation) stallTimer = setTimeout(fail, timeoutMs);
+    if (!element.paused && !element.ended && token === generation) { loading.show(); stallTimer = setTimeout(fail, timeoutMs); }
   };
   loadingTimer = setTimeout(fail, timeoutMs);
   on('waiting', watchdog); on('stalled', watchdog);
-  on('playing', () => { clearTimeout(stallTimer); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
-  on('pause', () => { active.session.paused = true; clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); if (!element.ended && element.readyState >= 1) status(`${source.voice} · ${source.quality}p · пауза`); recordProgress(true); });
+  on('playing', () => { loading.hide(); clearTimeout(stallTimer); document.body.classList.add('is-playing'); status(`${source.voice} · ${source.quality}p · воспроизведение`); });
+  on('pause', () => { loading.hide(); active.session.paused = true; clearTimeout(stallTimer); clearTimeout(loadingTimer); document.body.classList.remove('is-playing'); if (!element.ended && element.readyState >= 1) status(`${source.voice} · ${source.quality}p · пауза`); recordProgress(true); });
   on('play', () => { active.session.paused = false; watchdog(); });
   on('volumechange', () => { if (initialized) { active.session.volume = element.volume; active.session.muted = element.muted; } });
   on('ratechange', () => { if (initialized) active.session.rate = element.playbackRate; });
@@ -517,6 +527,7 @@ async function startSource() {
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
     clearTimeout(loadingTimer);
+    if (active.session.paused) loading.hide();
     configure();
     if (alternate) { alternate.volume(active.session.volume); alternate.muted(active.session.muted); alternate.playbackRate(active.session.rate); }
     initialized = true;
@@ -531,7 +542,7 @@ async function startSource() {
     }
     if (resumeAt > 0) element.currentTime = Number.isFinite(element.duration) ? Math.min(resumeAt, Math.max(0, element.duration - 0.5)) : resumeAt;
     if (active.session.paused) status(`${source.voice} · ${source.quality}p · пауза`);
-    else element.play().catch(() => { if (token === generation) status('Нажми ▶ в плеере, чтобы начать просмотр.'); });
+    else element.play().catch(() => { if (token === generation) { loading.hide(); status('Нажми ▶ в плеере, чтобы начать просмотр.'); } });
   });
   if (active.watching.engine === 'videojs') {
     try {
@@ -549,9 +560,9 @@ async function startSource() {
   } else if (/\.m3u8(?:$|\?)/i.test(source.url)) {
     let Hls;
     try { hlsModule ??= import('hls.js'); Hls = (await hlsModule).default; }
-    catch { hlsModule = null; if (token === generation) { status('Не удалось подготовить потоковое видео. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
+    catch { hlsModule = null; if (token === generation) { clearTimeout(loadingTimer); loading.hide(); status('Не удалось подготовить потоковое видео. Попробуй ещё раз.'); $('#retry-button').hidden = false; } return; }
     if (token !== generation) return;
-    if (!Hls.isSupported()) { status('Потоковое видео не поддерживается. Выбери альтернативный плеер или обычный видеофайл.'); $('#retry-button').hidden = false; return; }
+    if (!Hls.isSupported()) { clearTimeout(loadingTimer); loading.hide(); status('Потоковое видео не поддерживается. Выбери альтернативный плеер или обычный видеофайл.'); $('#retry-button').hidden = false; return; }
     hls = new Hls({ autoStartLoad: false, maxBufferLength: config.maxBufferLength, maxMaxBufferLength: config.maxMaxBufferLength, backBufferLength: config.backBufferLength, maxBufferSize: config.maxBufferSize, enableWorker: true,
       manifestLoadPolicy: { default: { maxTimeToFirstByteMs: timeoutMs, maxLoadTimeMs: timeoutMs, timeoutRetry: { maxNumRetry: 0 }, errorRetry: { maxNumRetry: 0 } } },
     });
