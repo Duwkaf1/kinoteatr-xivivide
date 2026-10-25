@@ -82,7 +82,8 @@ function Run-Silent($file, [string[]]$arguments) {
     Assert-True ($process.ExitCode -eq 0) "Installer command exited with $($process.ExitCode): $file"
 }
 function Wait-Button($process, $name) {
-    $deadline = [DateTime]::UtcNow.AddMinutes(3)
+    $timeout = if ($env:YORU_INSTALLER_UI_ONLY -eq '1') { 20 } else { 180 }
+    $deadline = [DateTime]::UtcNow.AddSeconds($timeout)
     while ([DateTime]::UtcNow -lt $deadline) {
         if ($process.HasExited) { throw "Installer closed before '$name' (exit $($process.ExitCode))" }
         $button = [InstallerUI]::Button($process.Id, $name)
@@ -133,6 +134,13 @@ try {
     Assert-True ($process.ExitCode -eq 0) 'Interactive installation failed'
     Assert-Installed $installDir
     Write-Host 'PASS: visible Russian installer, user-only installation, shortcuts and registration'
+    if ($env:YORU_INSTALLER_UI_ONLY -eq '1') {
+        # A tiny inert payload checks the same NSIS pages without spending minutes
+        # compressing Electron. The main CI job still tests the complete EXE.
+        Uninstall $installDir
+        if (Test-Path $installDir) { Remove-Item $installDir }
+        return
+    }
 
     # Upgrade/reinstall must preserve the profile and files not owned by the package.
     $extra = Join-Path $installDir 'личный файл.txt'

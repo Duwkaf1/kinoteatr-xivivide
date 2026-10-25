@@ -7,6 +7,28 @@ on:
 permissions:
   contents: read
 jobs:
+  installer-ui:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - shell: pwsh
+        run: choco install nsis --version=3.11 -y --no-progress
+      - name: Compile the real installer pages with an inert tiny payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/Yoru-win32-x64/resources | Out-Null
+          Set-Content artifacts/Yoru-win32-x64/Yoru.exe 'Not executable. UI test fixture only.'
+          Set-Content artifacts/Yoru-win32-x64/resources/app.asar 'UI test fixture only.'
+          node scripts/build-installer.js
+      - name: Check Russian buttons, shortcuts and removal quickly
+        shell: pwsh
+        env:
+          YORU_INSTALLER_UI_ONLY: '1'
+        run: ./scripts/test-installer.ps1
   windows:
     runs-on: windows-latest
     timeout-minutes: 30
