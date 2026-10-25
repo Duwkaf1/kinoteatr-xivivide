@@ -36,7 +36,6 @@ public static class InstallerUI {
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowTextW(IntPtr window, StringBuilder text, int count);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
-    [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr window);
     [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
     private static string Text(IntPtr window) { var text = new StringBuilder(512); GetWindowTextW(window, text, text.Capacity); return text.ToString(); }
@@ -126,8 +125,9 @@ try {
     $installButton = Wait-Button $process 'Установить'
     [InstallerUI]::Click($installButton)
     $finishButton = Wait-Button $process 'Готово'
-    $checkbox = [InstallerUI]::Control([InstallerUI]::GetParent($finishButton), 'Открыть Yoru')
-    Assert-True ($checkbox -ne [IntPtr]::Zero) 'Missing launch checkbox'
+    # The main button caption can change just before nsDialogs shows its child
+    # page. Wait for the checkbox itself instead of racing that page transition.
+    $checkbox = Wait-Button $process 'Открыть Yoru'
     [InstallerUI]::Uncheck($checkbox)
     [InstallerUI]::Click($finishButton)
     Assert-True ($process.WaitForExit(30000)) 'Installer did not finish'

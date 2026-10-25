@@ -133,7 +133,7 @@ Function ${PREFIX}CheckClosed
 retry:
   IfFileExists "$INSTDIR\Yoru.exe" 0 done
   System::Call 'kernel32::CreateFileW(w "$INSTDIR\Yoru.exe", i 0x40000000, i 7, p 0, i 3, i 0, p 0) p.r0'
-  StrCmp $0 -1 locked
+  IntCmp $0 -1 locked
   System::Call 'kernel32::CloseHandle(p r0)'
   Goto done
 locked:
