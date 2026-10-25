@@ -1,0 +1,274 @@
+{
+  "checked_at": "2026-10-25T17:48:31.746492+05:00",
+  "vantage": "Managed cloud proxy; no configured Russian VPN/egress. This is not an RF ISP check.",
+  "method": "Bounded HTTPS GET with inherited proxy and system TLS verification; no authentication or protection bypass. Metadata, manifest and small media-reference samples are separate.",
+  "pages": [
+    {
+      "name": "Yummyani",
+      "url": "https://old.yummyani.me/catalog?page=5",
+      "host": "old.yummyani.me",
+      "status": 200,
+      "bytes_read": 97010,
+      "limited": false,
+      "seconds": 1.06
+    },
+    {
+      "name": "AnimeJoy",
+      "url": "https://animejoy.ru/",
+      "host": "animejoy.ru",
+      "status": 200,
+      "bytes_read": 69569,
+      "limited": false,
+      "seconds": 0.86
+    },
+    {
+      "name": "TroutCDN",
+      "url": "https://g0e-1ka1v5q.troutcdn.site/283290",
+      "host": "g0e-1ka1v5q.troutcdn.site",
+      "status": 403,
+      "error": "Forbidden",
+      "seconds": 0.68
+    },
+    {
+      "name": "Brogiro",
+      "url": "https://brogiro.cfd/series/283290/",
+      "host": "brogiro.cfd",
+      "status": 404,
+      "error": "Not Found",
+      "seconds": 1.05
+    },
+    {
+      "name": "AniDUB",
+      "url": "https://anidub.com/",
+      "host": "anidub.com",
+      "status": 200,
+      "bytes_read": 71399,
+      "limited": false,
+      "seconds": 0.68
+    }
+  ],
+  "anime": [
+    {
+      "query": "Наруто",
+      "catalog": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 14987,
+        "limited": false,
+        "seconds": 0.8
+      },
+      "matches": [
+        {
+          "id": 413,
+          "name": "Наруто Ураганные хроники"
+        },
+        {
+          "id": 3996,
+          "name": "Боруто: Новое поколение Наруто"
+        }
+      ],
+      "matched": true,
+      "release_metadata": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 116182,
+        "limited": false,
+        "seconds": 0.57
+      },
+      "release_id": 413,
+      "name": "Наруто Ураганные хроники",
+      "episodes": 131,
+      "blocked_by_geo": false,
+      "blocked_by_copyrights": false,
+      "media_check": {
+        "episode": 370,
+        "rendition": "hls_720",
+        "host": "cache.libria.fun",
+        "status": 200,
+        "bytes_read": 11421,
+        "limited": false,
+        "seconds": 0.17,
+        "manifest_valid": true
+      },
+      "first_media_reference": {
+        "host": "cache.libria.fun",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "seconds": 0.64,
+        "sample_only": true
+      }
+    },
+    {
+      "query": "Атака титанов",
+      "catalog": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 6722,
+        "limited": false,
+        "seconds": 0.79
+      },
+      "matches": [
+        {
+          "id": 9329,
+          "name": "Не издевайся, Нагаторо: Вторая атака"
+        }
+      ],
+      "matched": false,
+      "note": "No matching requested release; unrelated search suggestions are not playback evidence."
+    },
+    {
+      "query": "Клинок",
+      "catalog": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 58086,
+        "limited": false,
+        "seconds": 0.89
+      },
+      "matches": [
+        {
+          "id": 508,
+          "name": "Клинок и Душа"
+        },
+        {
+          "id": 2233,
+          "name": "Клинок королевы: Гримуар"
+        },
+        {
+          "id": 8325,
+          "name": "Клинок, рассекающий демонов"
+        }
+      ],
+      "matched": true,
+      "release_metadata": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 56772,
+        "limited": false,
+        "seconds": 0.36
+      },
+      "release_id": 8325,
+      "name": "Клинок, рассекающий демонов",
+      "episodes": 26,
+      "blocked_by_geo": false,
+      "blocked_by_copyrights": false,
+      "media_check": {
+        "episode": 1,
+        "rendition": "hls_1080",
+        "host": "cache.libria.fun",
+        "status": 200,
+        "bytes_read": 11662,
+        "limited": false,
+        "seconds": 0.58,
+        "manifest_valid": true
+      },
+      "first_media_reference": {
+        "host": "cache.libria.fun",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "seconds": 0.59,
+        "sample_only": true
+      }
+    },
+    {
+      "query": "Магическая битва",
+      "catalog": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 62028,
+        "limited": false,
+        "seconds": 0.83
+      },
+      "matches": [
+        {
+          "id": 8789,
+          "name": "Магическая битва"
+        },
+        {
+          "id": 9313,
+          "name": "Магическая битва 0 Фильм"
+        },
+        {
+          "id": 9470,
+          "name": "Магическая битва 2"
+        }
+      ],
+      "matched": true,
+      "release_metadata": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 50606,
+        "limited": false,
+        "seconds": 0.27
+      },
+      "release_id": 8789,
+      "name": "Магическая битва",
+      "episodes": 24,
+      "blocked_by_geo": false,
+      "blocked_by_copyrights": false,
+      "media_check": {
+        "episode": 1,
+        "rendition": "hls_1080",
+        "host": "cache.libria.fun",
+        "status": 200,
+        "bytes_read": 11742,
+        "limited": false,
+        "seconds": 0.14,
+        "manifest_valid": true
+      },
+      "first_media_reference": {
+        "host": "cache.libria.fun",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "seconds": 0.61,
+        "sample_only": true
+      }
+    },
+    {
+      "query": "Фрирен",
+      "catalog": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 15117,
+        "limited": false,
+        "seconds": 0.3
+      },
+      "matches": [
+        {
+          "id": 9542,
+          "name": "Провожающая в последний путь Фрирен"
+        },
+        {
+          "id": 10085,
+          "name": "Провожающая в последний путь Фрирен 2"
+        }
+      ],
+      "matched": true,
+      "release_metadata": {
+        "host": "anilibria.top",
+        "status": 200,
+        "bytes_read": 66752,
+        "limited": false,
+        "seconds": 0.53
+      },
+      "release_id": 9542,
+      "name": "Провожающая в последний путь Фрирен",
+      "episodes": 28,
+      "blocked_by_geo": false,
+      "blocked_by_copyrights": false,
+      "media_check": {
+        "episode": 1,
+        "rendition": "hls_1080",
+        "host": "cache.libria.fun",
+        "status": 200,
+        "bytes_read": 17828,
+        "limited": false,
+        "seconds": 0.12,
+        "manifest_valid": true
+      },
+      "first_media_reference": {
+        "host": "cache.libria.fun",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "seconds": 0.32,
+        "sample_only": true
+      }
+    }
+  ]
+}

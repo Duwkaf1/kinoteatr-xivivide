@@ -1,0 +1,617 @@
+{
+  "method": "Three alternating old/new production-build pairs, each using five fresh Chromium contexts per version on the same cloud Linux machine. 500 synthetic titles × 5 episodes × 3 sources; no video decoding. Timings include Playwright overhead and machine variation. Not Windows, RF or live-stream latency.",
+  "before_commit": "7821e791853ec87c31c7ec8cb629c12f3dde019e",
+  "after_commit": "5353ddfb972ef2f2c595309e5ccd3777204c9fba",
+  "groups": {
+    "final-before-1": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 259.30000000447035,
+      "heapMedianBytes": 3084528,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 24.63693299999977,
+      "measurements": [
+        {
+          "startupMs": 259.30000000447035,
+          "heapBytes": 3084528,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            68.92971399999988,
+            21.005243999999948,
+            44.36399100000017,
+            14.77827400000001,
+            33.41438799999992
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 258.8999999985099,
+          "heapBytes": 3082080,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            50.33219700000018,
+            20.645924999999806,
+            29.310479000000214,
+            23.665897999999743,
+            19.49465199999986
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 250.5,
+          "heapBytes": 3085104,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            44.44029999999975,
+            9.457115000000158,
+            25.39661100000012,
+            23.740190999999868,
+            20.61328800000001
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 266.59999999403954,
+          "heapBytes": 3086480,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            50.90038800000002,
+            12.305324999999812,
+            38.50594799999999,
+            19.797983999999815,
+            38.42583999999988
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 267.5,
+          "heapBytes": 3082912,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            48.62591100000009,
+            10.170422999999573,
+            26.126267999999982,
+            24.63693299999977,
+            19.51274900000044
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        }
+      ]
+    },
+    "final-after-1": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 256.69999999552965,
+      "heapMedianBytes": 3088061,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 36.21427900000026,
+      "measurements": [
+        {
+          "startupMs": 910.2000000029802,
+          "heapBytes": 3086333,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            48.50234900000032,
+            15.459096999999929,
+            36.964370000000145,
+            20.961696000000302,
+            38.76558100000011
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js"
+          ]
+        },
+        {
+          "startupMs": 256.69999999552965,
+          "heapBytes": 3092941,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            44.2835970000001,
+            17.7512270000002,
+            41.388122000000294,
+            19.154352000000017,
+            36.21427900000026
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 275.8999999985099,
+          "heapBytes": 3090925,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            48.54348000000027,
+            8.493093999999473,
+            32.186265999999705,
+            37.68761799999993,
+            37.63538299999982
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 235.30000000447035,
+          "heapBytes": 3088061,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            48.29714299999978,
+            11.440292000000227,
+            27.3486699999994,
+            33.38756700000067,
+            17.43660500000078
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 233,
+          "heapBytes": 3083501,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            46.29873800000041,
+            37.9000589999996,
+            9.093450999999732,
+            25.700995000000148,
+            37.88875199999984
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        }
+      ]
+    },
+    "final-before-2": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 464.90000000596046,
+      "heapMedianBytes": 3080064,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 39.24257699999998,
+      "measurements": [
+        {
+          "startupMs": 1390.5999999940395,
+          "heapBytes": 3087248,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            50.88907599999993,
+            14.136085999999978,
+            27.38672799999995,
+            16.367153000000144,
+            32.26606099999981
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 464.90000000596046,
+          "heapBytes": 3054100,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            88.27230599999984,
+            29.436004999999568,
+            15.570314000000508,
+            38.2531399999998,
+            49.32737300000008
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 422.90000000596046,
+          "heapBytes": 3084864,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            155.36362199999985,
+            39.13623699999971,
+            26.003147000000354,
+            21.8057289999997,
+            65.36987700000009
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 248.60000000149012,
+          "heapBytes": 3080064,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            41.715925999999854,
+            14.276522999999543,
+            39.24257699999998,
+            18.7268439999998,
+            41.16428200000064
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 1225.7999999970198,
+          "heapBytes": 3076464,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            151.1303800000005,
+            61.896199000000706,
+            79.3181999999997,
+            60.98244700000032,
+            48.66197999999895
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js"
+          ]
+        }
+      ]
+    },
+    "final-after-2": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 297.1000000014901,
+      "heapMedianBytes": 3092589,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 36.27656500000012,
+      "measurements": [
+        {
+          "startupMs": 597.7999999970198,
+          "heapBytes": 3094301,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            56.00303699999995,
+            15.466385000000173,
+            28.156850999999733,
+            23.370895999999902,
+            27.45127100000036
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 297.1000000014901,
+          "heapBytes": 3093517,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            68.03474400000005,
+            27.747163999999884,
+            42.933802000000014,
+            41.29476199999999,
+            45.8540909999997
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 290.69999999552965,
+          "heapBytes": 3092589,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            66.99141700000018,
+            36.27656500000012,
+            18.58006099999966,
+            62.068726000000424,
+            60.775282999999945
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 307.70000000298023,
+          "heapBytes": 3081533,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            59.70515499999965,
+            34.05833999999959,
+            23.55279100000007,
+            32.29576400000042,
+            22.51333000000068
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 291,
+          "heapBytes": 3090413,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            47.393772000000354,
+            25.191200000000208,
+            12.728256999999758,
+            43.2383890000001,
+            41.52785600000061
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        }
+      ]
+    },
+    "final-before-3": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 263.3999999985099,
+      "heapMedianBytes": 3079776,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 36.925459000000046,
+      "measurements": [
+        {
+          "startupMs": 243.10000000149012,
+          "heapBytes": 3070864,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            41.93304799999987,
+            15.542756000000054,
+            23.876453999999967,
+            36.925459000000046,
+            36.87199799999985
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 246.89999999850988,
+          "heapBytes": 3079776,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            49.98192900000004,
+            14.419886000000133,
+            32.06777499999998,
+            40.931258999999955,
+            32.13251900000023
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 263.3999999985099,
+          "heapBytes": 3084864,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            89.08031500000016,
+            40.501394999999775,
+            52.64295600000014,
+            43.34575799999993,
+            44.31484099999989
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 679.6000000014901,
+          "heapBytes": 3081600,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            79.4759240000003,
+            22.301682999999684,
+            65.6745920000003,
+            54.71296499999971,
+            26.765557000000626
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        },
+        {
+          "startupMs": 509.3999999985099,
+          "heapBytes": 3069616,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            47.990334999999504,
+            21.709702999999536,
+            10.729580999999598,
+            28.920178999999735,
+            36.85611700000027
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4174/theme-init.js",
+            "http://127.0.0.1:4174/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4174/assets/index-DY5wyoxm.js"
+          ]
+        }
+      ]
+    },
+    "final-after-3": {
+      "scenario": "500 titles, 5 episodes/title, 3 sources/episode; production build, system Chromium Linux, 1400x1000; five fresh browser contexts",
+      "startupMedianMs": 257.90000000596046,
+      "heapMedianBytes": 3084909,
+      "domNodesMedian": 2740,
+      "searchMedianMs": 29.47514699999965,
+      "measurements": [
+        {
+          "startupMs": 246.19999999552965,
+          "heapBytes": 3084909,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            58.980655999999954,
+            32.68011799999999,
+            10.457499999999982,
+            41.432781000000205,
+            36.7200150000001
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 257.90000000596046,
+          "heapBytes": 3081389,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            54.73108699999989,
+            22.501358999999866,
+            12.223387000000002,
+            29.50593600000002,
+            22.375326999999743
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 298.69999999552965,
+          "heapBytes": 3091165,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            47.1130720000001,
+            12.321317000000363,
+            12.35594600000013,
+            33.966331999999966,
+            31.317557999999735
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 258.1000000014901,
+          "heapBytes": 3087181,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            40.92504000000008,
+            14.708896000000095,
+            29.47514699999965,
+            14.378685000000132,
+            34.06275800000003
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        },
+        {
+          "startupMs": 240,
+          "heapBytes": 3074381,
+          "domNodes": 2740,
+          "renderedCards": 10,
+          "searchMs": [
+            44.18687199999931,
+            22.837439999999333,
+            10.54358300000058,
+            22.519768000000113,
+            19.69437299999936
+          ],
+          "loadedScripts": [
+            "http://127.0.0.1:4173/theme-init.js",
+            "http://127.0.0.1:4173/assets/rolldown-runtime-WkwZ5CU-.js",
+            "http://127.0.0.1:4173/assets/index-CSigdANF.js"
+          ]
+        }
+      ]
+    }
+  },
+  "aggregate": {
+    "before": {
+      "contexts": 15,
+      "startup_median_ms": 266.59999999403954,
+      "heap_median_bytes": 3082080,
+      "dom_nodes_median": 2740,
+      "search_median_ms": 36.85611700000027
+    },
+    "after": {
+      "contexts": 15,
+      "startup_median_ms": 275.8999999985099,
+      "heap_median_bytes": 3088061,
+      "dom_nodes_median": 2740,
+      "search_median_ms": 32.68011799999999
+    }
+  }
+}
