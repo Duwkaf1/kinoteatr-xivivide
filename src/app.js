@@ -31,6 +31,7 @@ let visibleCount = pageSize();
 let searchTimer;
 let hlsModule;
 let viewing; let casts;
+let overviewPosters = '';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 decorateIcons();
 function applyPreferences() {
@@ -173,6 +174,12 @@ function updateOverview() {
   $('#library-count').textContent = state.titles.length;
   $('#favorite-count').textContent = state.favorites.length;
   const recent = state.titles.filter(t => Object.hasOwn(state.progress, t.id)).sort((a, b) => state.progress[b.id].updatedAt - state.progress[a.id].updatedAt)[0];
+  const images = [...new Set([recent?.posterUrl, ...state.titles.slice().reverse().map(title => title.posterUrl)].filter(Boolean))].slice(0, 3);
+  const signature = JSON.stringify(images);
+  if (signature !== overviewPosters) {
+    overviewPosters = signature;
+    $('#hero-posters').replaceChildren(...images.map(url => { const image = posterImage(url); image.className = 'hero-poster'; image.onerror = () => image.remove(); return image; }));
+  }
   if (recent) {
     const progress = state.progress[recent.id]; const ep = recent.episodes.find(e => e.id === progress.episodeId);
     $('#hero-eyebrow').textContent = 'ТВОЯ ИСТОРИЯ ПРОДОЛЖАЕТСЯ';
@@ -199,9 +206,10 @@ function renderLibrary() {
   const fragment = document.createDocumentFragment();
   if (!titles.length) {
     const empty = node('div', undefined, 'empty');
-    empty.append(node('div', '▷', 'empty-icon'), node('h2', query ? 'Ничего не нашлось' : view === 'library' ? 'Здесь начнётся твой следующий сеанс' : view === 'favorites' ? 'Любимые истории будут здесь' : 'История пока пуста'));
+    const emptyIcon = node('div', undefined, 'empty-icon'); emptyIcon.append(icon(query ? 'search' : view === 'favorites' ? 'heart' : view === 'history' ? 'history' : 'library'));
+    empty.append(emptyIcon, node('h2', query ? 'Ничего не нашлось' : view === 'library' ? 'Здесь начнётся твой следующий сеанс' : view === 'favorites' ? 'Любимые истории будут здесь' : 'История пока пуста'));
     empty.append(node('p', query ? 'Попробуй другое название.' : view === 'library' ? 'Добавь прямую ссылку на видео или импортируй список серий. Каталоги сайтов пока не подключены.' : 'Открой аниме из библиотеки, чтобы продолжить.'));
-    if (view === 'library' && !query) { const button = node('button', '＋ Добавить первое аниме', 'primary'); button.onclick = openAdd; empty.append(button); }
+    if (view === 'library' && !query) { const button = node('button', undefined, 'primary'); button.append(icon('plus'), node('span', 'Добавить первое аниме')); button.onclick = openAdd; empty.append(button); }
     fragment.append(empty);
   }
   for (const title of titles.slice(0, visibleCount)) {
@@ -237,7 +245,7 @@ function renderLibrary() {
     const progress = Object.hasOwn(state.progress, title.id) ? state.progress[title.id] : null;
     const ep = title.episodes.find(e => e.id === progress?.episodeId);
     info.append(node('p', ep ? `Серия ${ep.number} · ${Math.floor(progress.time / 60)} мин` : `${title.episodes.length} серий · ещё не смотрел`, 'muted'));
-    const edit = node('button', 'Обложка', 'poster-edit');
+    const edit = node('button', undefined, 'poster-edit'); edit.append(icon('image'), node('span', 'Обложка'));
     edit.setAttribute('aria-label', `Изменить постер: ${title.title}`);
     edit.onclick = () => openPoster(title);
     info.append(edit);
@@ -266,14 +274,20 @@ function changeView(next) {
   $('#hero').hidden = view !== 'library' || !preferences.interface.showHero;
   renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : view === 'settings' ? $('#settings-view') : $('#library-view'));
 }
-for (const button of document.querySelectorAll('[data-view]')) button.onclick = () => changeView(button.dataset.view);
+for (const button of document.querySelectorAll('[data-view]')) { button.title = button.getAttribute('aria-label'); button.onclick = () => changeView(button.dataset.view); }
+for (const button of document.querySelectorAll('[data-settings-jump]')) button.onclick = () => {
+  const target = document.getElementById(button.dataset.settingsJump);
+  if (target instanceof HTMLDetailsElement) target.open = true;
+  target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'start', behavior: motionEnabled() ? 'smooth' : 'instant' });
+};
 $('#home-button').onclick = () => changeView('library');
 $('#load-more').onclick = () => { visibleCount += pageSize(); renderLibrary(); };
 $('#sort').onchange = () => { visibleCount = pageSize(); renderLibrary(); };
 for (const source of EXAMPLE_SITES) {
   const card = node('article', undefined, 'source-card');
-  card.append(node('span', 'ТРЕБУЕТ ПРОВЕРКИ', 'badge'), node('div', '↗', 'source-mark'), node('h2', source.name), node('p', new URL(source.url).hostname, 'source-host'), node('p', source.description, 'muted'));
-  const open = node('button', 'Открыть страницу ↗', 'quiet');
+  const mark = node('div', undefined, 'source-mark'); mark.append(icon('external'));
+  card.append(node('span', 'ТРЕБУЕТ ПРОВЕРКИ', 'badge'), mark, node('h2', source.name), node('p', new URL(source.url).hostname, 'source-host'), node('p', source.description, 'muted'));
+  const open = node('button', undefined, 'quiet'); open.append(node('span', 'Открыть страницу'), icon('external'));
   open.onclick = async () => {
     if (window.kadr) {
       try { await window.kadr.openSource(source.id); } catch { toast('Не удалось открыть окно источника.'); }

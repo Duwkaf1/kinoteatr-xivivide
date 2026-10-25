@@ -1,6 +1,6 @@
 import { DEFAULT_CUSTOM, validateCustom } from './custom-theme.js';
 import { defaultWatching, validateWatching } from './watching.js';
-export const THEMES = Object.freeze(['night', 'nord', 'sakura', 'cream', 'custom']);
+export const THEMES = Object.freeze(['night', 'oled', 'nord', 'sakura', 'cream', 'custom']);
 export const PROFILES = Object.freeze({
   quality: { quality: 1080, pageSize: 24, maxBufferLength: 30, maxMaxBufferLength: 45, backBufferLength: 8, maxBufferSize: 40 * 1024 * 1024 },
   balanced: { quality: 720, pageSize: 24, maxBufferLength: 20, maxMaxBufferLength: 30, backBufferLength: 5, maxBufferSize: 24 * 1024 * 1024 },

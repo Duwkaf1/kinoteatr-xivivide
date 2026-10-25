@@ -11,6 +11,12 @@ test('themes and mode persist independently of the library', () => {
   assert.deepEqual(loadPreferences(storage), preferences);
   assert.equal(values.get('kadr.library.v1'), 'preserve-existing-library');
 });
+test('OLED migrates and persists without resetting a saved custom palette', () => {
+  const palette = { background: '#123456', panel: '#234567', text: '#fedcba', accent: '#abcdef', radius: 34 };
+  const values = new Map(); const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  savePreferences({ ...defaultPreferences(), theme: 'oled', custom: palette }, storage);
+  assert.equal(loadPreferences(storage).theme, 'oled'); assert.deepEqual(loadPreferences(storage).custom, palette);
+});
 test('invalid settings are sanitized and corrupt settings do not trigger writes', () => {
   const invalid = validatePreferences({ theme: '<script>', profile: '__proto__', animations: 'yes', autoNext: 1 });
   assert.deepEqual(invalid, defaultPreferences());

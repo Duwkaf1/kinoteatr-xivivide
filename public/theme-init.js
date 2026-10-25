@@ -3,7 +3,7 @@
   try {
     const saved = JSON.parse(localStorage.getItem('kadr.preferences.v1') || '{}');
     const root = document.documentElement;
-    root.dataset.theme = ['night', 'nord', 'sakura', 'cream', 'custom'].includes(saved.theme) ? saved.theme : 'night';
+    root.dataset.theme = ['night', 'oled', 'nord', 'sakura', 'cream', 'custom'].includes(saved.theme) ? saved.theme : 'night';
     if (saved.theme === 'custom') {
       const fallback = { background: '#15171c', panel: '#20232b', text: '#eeeef2', accent: '#f2c48f' };
       for (const key of Object.keys(fallback)) {

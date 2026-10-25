@@ -43,6 +43,24 @@ try {
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   assert.equal(await page.locator('input[name="profile"][value="balanced"]').isChecked(), true);
   assert.equal(await page.locator('#default-quality').inputValue(), '1080');
+  await page.locator('input[name="theme"][value="oled"]').check();
+  await page.reload(); await page.waitForFunction(() => document.documentElement.dataset.theme === 'oled' && document.querySelector('#hero-button').onclick !== null);
+  assert.equal(await page.locator('body').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(0, 0, 0)');
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  for (const zoom of [1, 1.25, 1.5, 2]) {
+    await application.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, `Electron layout at ${zoom * 100}%`);
+    await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+    const bounds = await page.locator('#add-dialog').boundingBox();
+    assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.width <= await page.evaluate(() => innerWidth) && bounds.height <= await page.evaluate(() => innerHeight));
+    await page.keyboard.press('Escape');
+  }
+  await application.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.webContents.setZoomFactor(1); window.setContentSize(640, 480); });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'Minimum Electron window has no horizontal overflow');
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1320, 900));
+  console.log('PASS: OLED startup, Electron zoom 100/125/150/200%, modal bounds and 640x480 layout');
   await page.locator('input[name="theme"][value="custom"]').check();
   await page.locator('#hex-background').fill('#182030');
   await page.locator('#hex-background').blur();

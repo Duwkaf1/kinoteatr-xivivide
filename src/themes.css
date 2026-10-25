@@ -1,0 +1,44 @@
+/* Yoru: semantic palettes. Components consume roles, never theme-specific colors. */
+:root, :root[data-theme="night"] {
+  color-scheme: dark;
+  --app-bg: #151617; --sidebar-bg: #101112; --surface: #1d1f21; --surface-soft: #191b1d; --surface-raised: #282b2e;
+  --text: #f2f1ed; --muted: #b5b8ba; --subtle: #969b9f; --line: #363a3d;
+  --accent: #e5bf88; --accent-ink: #292115; --accent-soft: #342e25; --mint: #b9c9b8;
+  --shadow: #00000026; --notice-bg: #2c2821; --notice-text: #e5cda5; --danger: #f4a69f;
+}
+:root[data-theme="oled"] {
+  color-scheme: dark;
+  --app-bg: #000000; --sidebar-bg: #000000; --surface: #0e0f10; --surface-soft: #080909; --surface-raised: #1b1d1f;
+  --text: #f5f4f0; --muted: #b8bbbd; --subtle: #999ea2; --line: #303335;
+  --accent: #d5c8a7; --accent-ink: #231f15; --accent-soft: #24221c; --mint: #bccdbd;
+  --shadow: #00000000; --notice-bg: #211f19; --notice-text: #dfcfb1; --danger: #f4a69f;
+}
+:root[data-theme="nord"] {
+  --app-bg: #141c25; --sidebar-bg: #10171f; --surface: #1c2834; --surface-soft: #18222d; --surface-raised: #293a49;
+  --text: #edf4fa; --muted: #b3c4d3; --subtle: #98aec0; --line: #374d60;
+  --accent: #a0ceed; --accent-ink: #182e3f; --accent-soft: #293e50; --mint: #acd3ce;
+  --shadow: #050d1526; --notice-bg: #263440; --notice-text: #c1dcf0; --danger: #ffb1aa;
+}
+:root[data-theme="sakura"] {
+  --app-bg: #211b22; --sidebar-bg: #19151b; --surface: #2c252e; --surface-soft: #262027; --surface-raised: #3d323f;
+  --text: #f8edf2; --muted: #d0bbc9; --subtle: #b89eaf; --line: #514052;
+  --accent: #edb4ca; --accent-ink: #402432; --accent-soft: #45303e; --mint: #d5c7dc;
+  --shadow: #0f091326; --notice-bg: #3a2c34; --notice-text: #ecc7d7; --danger: #ffb6a9;
+}
+:root[data-theme="cream"] {
+  color-scheme: light;
+  --app-bg: #f4f3ef; --sidebar-bg: #eeede8; --surface: #fffefa; --surface-soft: #eeede7; --surface-raised: #e7e5dd;
+  --text: #282a29; --muted: #575c59; --subtle: #686e69; --line: #d4d7ce;
+  --accent: #4b604c; --accent-ink: #ffffff; --accent-soft: #e0e7db; --mint: #546953;
+  --shadow: #1c29120a; --notice-bg: #eee9dc; --notice-text: #67522c; --danger: #a33329;
+}
+:root[data-theme="custom"] {
+  --app-bg: var(--custom-background, #15171c); --surface: var(--custom-panel, #20232b); --text: var(--custom-text, #eeeef2);
+  --sidebar-bg: var(--app-bg); --surface-soft: color-mix(in srgb, var(--app-bg) 55%, var(--surface));
+  --surface-raised: color-mix(in srgb, var(--surface) 88%, var(--text)); --muted: color-mix(in srgb, var(--text) 78%, var(--app-bg));
+  --subtle: color-mix(in srgb, var(--text) 66%, var(--app-bg)); --line: color-mix(in srgb, var(--text) 22%, var(--surface));
+  --accent: var(--custom-accent, #f2c48f); --accent-ink: var(--custom-accent-ink, #000); --accent-soft: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  --mint: var(--accent); --shadow: #00000020; --notice-bg: var(--accent-soft); --notice-text: var(--text); --danger: var(--text);
+  --ui-radius: var(--custom-radius, 28px); color-scheme: dark;
+}
+:root[data-theme="custom"][data-custom-scheme="light"] { color-scheme: light; }

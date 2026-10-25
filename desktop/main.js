@@ -38,7 +38,7 @@ else {
   app.on('second-instance', () => { if (mainWindow?.isMinimized()) mainWindow.restore(); mainWindow?.focus(); });
   app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-      width: 1320, height: 900, minWidth: 960, minHeight: 680, title: 'Yoru — аниме', backgroundColor: '#111516', autoHideMenuBar: true,
+      width: 1320, height: 900, minWidth: 640, minHeight: 480, title: 'Yoru — аниме', backgroundColor: '#151617', autoHideMenuBar: true,
       webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     });
     mainWindow.on('closed', () => {

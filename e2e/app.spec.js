@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { contrast } from '../src/custom-theme.js';
 
 let fixture; let directory;
 let hlsManifest;
@@ -246,7 +247,9 @@ test('cinema mode, keyboard controls, close cleanup and compact progress writes'
 
 test('system reduced motion and persisted animation preference disable motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await open(page);
-  expect(await page.locator('.cinema-ticket').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
+  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  expect(await page.locator('#add-dialog').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('#animations-setting').uncheck();
   await expect(page.locator('#animations-setting')).not.toBeChecked();
@@ -695,11 +698,100 @@ test('archived AniDB cast displays real CDN portraits and actor photos in the so
   await expect.poll(() => page.locator('.character-photo').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);
   await expect.poll(() => page.locator('.character-actor img').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);
   await page.getByRole('button', { name: 'Изменить имя: Sakuragasaki Fubuki', exact: true }).click();
+  await page.locator('#character-name-dialog').screenshot({ path: 'test-results/character-name-dialog.png' });
   await page.locator('#character-name-input').fill('Фубуки Сакурагасаки'); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
   await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).fill('Следить за её историей');
   await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).blur();
   await page.locator('#cast-panel').screenshot({ path: 'test-results/character-photos.png' });
+  await page.getByRole('button', { name: 'Выбрать фото: Фубуки Сакурагасаки', exact: true }).click();
+  await page.locator('#character-photo-dialog').screenshot({ path: 'test-results/character-photo-dialog.png' });
+  await page.locator('#character-photo-cancel').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('Fluent palettes have readable semantic colors and OLED survives startup', async ({ page }) => {
+  await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  for (const theme of ['night', 'nord', 'sakura', 'cream', 'oled']) {
+    await page.locator(`input[name="theme"][value="${theme}"]`).check();
+    const palette = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return Object.fromEntries(['app-bg','surface','text','muted','subtle','accent','accent-ink'].map(key => [key, s.getPropertyValue('--'+key).trim()])); });
+    for (const text of ['text','muted','subtle']) {
+      expect(contrast(palette[text], palette['app-bg']), `${theme}: ${text} on page`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(palette[text], palette.surface), `${theme}: ${text} on panel`).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast(palette.accent, palette['accent-ink']), `${theme}: primary button`).toBeGreaterThanOrEqual(4.5);
+    if (['night','oled','nord'].includes(theme)) await page.screenshot({ path: `test-results/settings-${theme}.png`, fullPage: true });
+  }
+  await page.reload(); await expect(page.locator('html')).toHaveAttribute('data-theme','oled');
+  await expect(page.locator('body')).toHaveCSS('background-color','rgb(0, 0, 0)');
+  await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
+  await page.screenshot({ path: 'test-results/empty-library.png', fullPage: true });
+  await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
+  await page.locator('#add-dialog').screenshot({ path: 'test-results/add-dialog.png' });
+  await page.keyboard.press('Escape'); await expect(page.locator('#add-button')).toBeFocused();
+});
+
+test('redesign gallery covers favorites, history, media management and visible errors', async ({ page }) => {
+  const titles=posterCatalog.slice(0,6).map(item=>({...anime([source('first')]),id:String(item.id),title:item.title,posterUrl:item.posterUrl}));
+  await seed(page,titles); await servePosters(page); await serveVideo(page);
+  await page.addInitScript(ids=>{const key='kadr.library.v1';const value=JSON.parse(localStorage.getItem(key)); value.favorites=ids.slice(0,2);value.progress={[ids[0]]:{episodeId:'1',time:2,updatedAt:1}};localStorage.setItem(key,JSON.stringify(value));},titles.map(t=>t.id));
+  await open(page); await page.emulateMedia({reducedMotion:'reduce'});
+  await page.getByRole('button',{name:'Избранное',exact:true}).click();await expect(page.locator('.anime-card')).toHaveCount(2);await page.screenshot({path:'test-results/favorites.png',fullPage:true});
+  await page.getByRole('button',{name:'История',exact:true}).click();await expect(page.locator('.anime-card')).toHaveCount(1);await page.screenshot({path:'test-results/history.png',fullPage:true});
+  await page.getByRole('button',{name:`Смотреть: ${titles[0].title}`,exact:true}).click();await expect(page.locator('#playback-status')).toContainText('воспроизведение');await page.locator('video').evaluate(v=>v.pause());
+  await playerSettings(page);await page.locator('#edit-media').click();await page.locator('#media-dialog').screenshot({path:'test-results/media-dialog.png'});
+  await page.getByRole('button',{name:'Добавить перевод',exact:true}).scrollIntoViewIfNeeded();await page.locator('#media-dialog').screenshot({path:'test-results/subtitle-dialog.png'});await page.locator('#close-media-dialog').click();
+  await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();await page.getByRole('button',{name:'Библиотека',exact:true}).click();
+  await page.locator('#search').fill('Такого аниме в коллекции нет');await expect(page.locator('.empty')).toContainText('Ничего не нашлось');await page.screenshot({path:'test-results/search-empty.png',fullPage:true});
+  await page.locator('#import-file').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{broken')});await expect(page.locator('#toast')).toBeVisible();await page.screenshot({path:'test-results/import-error.png',fullPage:true});
+});
+
+test('100, 125, 150 and 200 percent display-scale emulation keeps navigation, settings and dialogs usable', async ({ browser }) => {
+  test.setTimeout(60000);
+  for (const scale of [1, 1.25, 1.5, 2]) {
+    const context = await browser.newContext({ viewport: { width: Math.round(1600 / scale), height: Math.round(1000 / scale) }, deviceScaleFactor: scale, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    try {
+      const titles = posterCatalog.slice(0,8).map(item => ({ ...anime([source('first')]), id: String(item.id), title: item.title, posterUrl: item.posterUrl }));
+      titles[0].title = 'Очень длинное название аниме для проверки переноса текста и сохранения доступности кнопок в узком окне';
+      await seed(page,titles); await servePosters(page); await open(page);
+      expect(await page.evaluate(() => devicePixelRatio)).toBe(scale);
+      const fits = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await fits();
+      for (const view of ['Избранное','История','Источники','Настройки']) { await page.getByRole('button',{name:view,exact:true}).click(); await fits(); }
+      for (const theme of ['night','oled','nord','sakura','cream','custom']) { await page.locator(`input[name="theme"][value="${theme}"]`).check(); await fits(); }
+      await page.locator('input[name="theme"][value="night"]').check();
+      await page.locator('.settings-jumps [data-settings-jump="advanced-settings"]').click();
+      await expect(page.locator('#advanced-settings')).toHaveAttribute('open',''); await expect(page.locator('#advanced-settings')).toBeFocused();
+      await fits();
+      await page.locator('input[name="profile"][value="manual"]').check(); await fits();
+      await page.locator('.settings-jumps [data-settings-jump="appearance-settings"]').click();
+      await page.screenshot({path:`test-results/scale-${Math.round(scale*100)}-settings.png`});
+      await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();
+      const dialog=await page.locator('#add-dialog').boundingBox();
+      expect(dialog.x).toBeGreaterThanOrEqual(0); expect(dialog.y).toBeGreaterThanOrEqual(0);
+      expect(dialog.x+dialog.width).toBeLessThanOrEqual(page.viewportSize().width+1); expect(dialog.height).toBeLessThanOrEqual(page.viewportSize().height);
+      await page.locator('#add-form input[name="title"]').fill(titles[0].title);
+      await page.getByRole('button',{name:'Добавить',exact:true}).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('button',{name:'Добавить',exact:true})).toBeInViewport();
+      await page.keyboard.press('Escape'); await expect(page.locator('#add-button')).toBeFocused();
+      await page.getByRole('button',{name:'Библиотека',exact:true}).click(); await fits();
+      await page.locator('.artwork').first().focus();
+      await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('.artwork').first()).toHaveCSS('outline-style','solid');
+      await page.screenshot({path:`test-results/scale-${Math.round(scale*100)}-library.png`});
+    } finally { await context.close(); }
+  }
+});
+
+test('small windows, keyboard-only actions and forced colors keep controls reachable', async ({ page }) => {
+  await open(page); await page.setViewportSize({width:640,height:480}); await page.emulateMedia({forcedColors:'active',reducedMotion:'reduce'});
+  await page.keyboard.press('Tab'); await expect(page.locator('.skip-link')).toBeFocused(); await page.keyboard.press('Enter'); await expect(page.locator('main')).toBeFocused();
+  await page.getByRole('button',{name:'Настройки',exact:true}).focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('#settings-view')).toBeVisible();
+  await page.locator('input[name="theme"][value="oled"]').focus(); await page.keyboard.press('Space'); await expect(page.locator('html')).toHaveAttribute('data-theme','oled');
+  await page.locator('#auto-next-setting').focus(); const before=await page.locator('#auto-next-setting').isChecked(); await page.keyboard.press('Space'); expect(await page.locator('#auto-next-setting').isChecked()).toBe(!before);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/keyboard-high-contrast.png'});
 });
 
 test('each anime keeps its own cast context, editable names and note strips across refresh and seasons', async ({ page }) => {
