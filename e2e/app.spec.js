@@ -694,6 +694,68 @@ test('archived AniDB cast displays real CDN portraits and actor photos in the so
   await page.locator('.cast-card').last().scrollIntoViewIfNeeded();
   await expect.poll(() => page.locator('.character-photo').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);
   await expect.poll(() => page.locator('.character-actor img').evaluateAll(images => images.filter(image => image.naturalWidth > 0).length)).toBe(4);
+  await page.getByRole('button', { name: 'Изменить имя: Sakuragasaki Fubuki', exact: true }).click();
+  await page.locator('#character-name-input').fill('Фубуки Сакурагасаки'); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).fill('Следить за её историей');
+  await page.getByRole('textbox', { name: 'Заметка к персонажу: Фубуки Сакурагасаки', exact: true }).blur();
   await page.locator('#cast-panel').screenshot({ path: 'test-results/character-photos.png' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('each anime keeps its own cast context, editable names and note strips across refresh and seasons', async ({ page }) => {
+  const first = { ...anime([source('first')]), title: 'Первое аниме', seasons: [{ number: 1, anidbId: 123 }, { number: 2, anidbId: 456 }] };
+  const second = { ...anime([source('first')]), id: 'second', title: 'Второе аниме', anidbId: 123 };
+  const xml = (release, name = 'Имя из AniDB') => `<anime id="${release}"><titles><title type="main">Релиз ${release}</title></titles><characters><character id="1" type="main character in"><name>${name}</name></character></characters><episodes/></anime>`;
+  const loadCast = async (release, name) => page.locator('#anidb-xml').setInputFiles({ name: 'cast.xml', mimeType: 'application/xml', buffer: Buffer.from(xml(release, name)) });
+  const rename = async (old, name) => {
+    await page.getByRole('button', { name: `Изменить имя: ${old}`, exact: true }).click();
+    await page.locator('#character-name-input').fill(name); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
+  };
+  const note = page.locator('.character-note');
+  await seed(page, [first, second]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Смотреть: Первое аниме', exact: true }).click();
+  await page.locator('video').evaluate(v => { v.pause(); v.currentTime = 2; v.dataset.detailsCheck = 'stable'; });
+  await page.locator('#cast-panel > summary').click(); await loadCast(123);
+  await expect(page.locator('#cast-context')).toHaveText('Первое аниме · Сезон 1');
+  await rename('Имя из AniDB', 'Моя героиня');
+  await note.fill('Заметка только к первому аниме'); await note.blur();
+  await expect(page.locator('.character-note-status')).toHaveText('Сохранено');
+  await loadCast(123, 'Уточнённое имя AniDB');
+  await expect(page.locator('.cast-card h3')).toHaveText('Моя героиня'); await expect(note).toHaveValue('Заметка только к первому аниме');
+  await expect(page.locator('video')).toHaveAttribute('data-details-check', 'stable'); expect(await page.locator('video').evaluate(v => v.paused)).toBe(true);
+  await page.locator('#cast-season').selectOption('2'); await loadCast(456, 'Героиня второго сезона');
+  await expect(page.locator('.cast-card h3')).toHaveText('Героиня второго сезона'); await expect(note).toHaveValue('');
+  await note.fill('Про второй сезон'); await page.locator('#cast-season').selectOption('1');
+  await expect(note).toHaveValue('Заметка только к первому аниме');
+  await page.getByRole('button', { name: 'Смотреть: Второе аниме', exact: true }).click();
+  await expect(page.locator('#cast-context')).toHaveText('Второе аниме · Сезон 1');
+  await expect(page.locator('.cast-card h3')).toHaveText('Уточнённое имя AniDB'); await expect(note).toHaveValue('');
+  await rename('Уточнённое имя AniDB', 'Другое имя'); await note.fill('Заметка второго аниме');
+  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Второе аниме', exact: true }).click(); await page.locator('#cast-panel > summary').click();
+  await expect(page.locator('.cast-card h3')).toHaveText('Другое имя'); await expect(note).toHaveValue('Заметка второго аниме');
+  await page.getByRole('button', { name: 'Смотреть: Первое аниме', exact: true }).click();
+  await expect(page.locator('.cast-card h3')).toHaveText('Моя героиня'); await expect(note).toHaveValue('Заметка только к первому аниме');
+  await page.getByRole('button', { name: 'Изменить имя: Моя героиня', exact: true }).click();
+  await expect(page.locator('#character-name-source')).toContainText('Уточнённое имя AniDB');
+  await page.locator('#character-name-reset').click(); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
+  await expect(page.locator('.cast-card h3')).toHaveText('Уточнённое имя AniDB'); await expect(note).toHaveValue('Заметка только к первому аниме');
+  await note.fill(''); await note.blur(); await page.locator('#cast-season').selectOption('2'); await expect(note).toHaveValue('Про второй сезон');
+});
+
+test('failed personal-note saves keep the draft visible and can be retried', async ({ page }) => {
+  await seed(page, [{ ...anime([source('first')]), anidbId: 123 }]); await serveVideo(page); await open(page);
+  await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click(); await page.locator('#cast-panel > summary').click();
+  await page.locator('#anidb-xml').setInputFiles({ name: 'cast.xml', mimeType: 'application/xml', buffer: Buffer.from('<anime id="123"><characters><character id="1"><name>Герой</name></character></characters><episodes/></anime>') });
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) { if (key === 'yoru.character-details.v1') throw new DOMException('Quota exceeded', 'QuotaExceededError'); return original.call(this, key, value); };
+    window.restoreDetailsStorage = () => { Storage.prototype.setItem = original; };
+  });
+  await page.locator('.character-note').fill('Не потерять эту заметку'); await page.locator('.character-note').blur();
+  await expect(page.locator('.character-note-status')).toContainText('Не удалось сохранить'); await expect(page.locator('.character-note')).toHaveValue('Не потерять эту заметку');
+  await page.evaluate(() => window.restoreDetailsStorage());
+  await page.locator('.character-note').focus(); await page.locator('.character-note').blur();
+  await expect(page.locator('.character-note-status')).toHaveText('Сохранено');
+  await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click(); await page.locator('#cast-panel > summary').click();
+  await expect(page.locator('.character-note')).toHaveValue('Не потерять эту заметку');
 });

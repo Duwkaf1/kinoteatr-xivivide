@@ -115,7 +115,7 @@
         <div class="player-more">
           <details id="episode-picker" class="player-drawer"><summary>Серии</summary><div id="episode-list" class="episodes"></div></details>
         <details id="cast-panel" class="settings-card player-drawer"><summary>Персонажи</summary>
-          <p class="settings-description">Связь с AniDB задаётся отдельно для каждого сезона. Персонажи и актёры озвучивания не зависят от выбранного перевода.</p>
+          <p id="cast-context" class="cast-context"></p><p class="settings-description">У каждого аниме и сезона своя связь с AniDB. Имя можно изменить карандашом, под ним — личная заметка с автосохранением.</p>
           <div class="cast-toolbar"><label>Сезон<select id="cast-season"></select></label><label>Показать<select id="cast-scope"><option value="season">Состав сезона</option><option value="episode">Состав текущей серии</option></select></label><label>Номер релиза AniDB<input id="anidb-id" type="number" min="1" max="100000000" step="1"></label><button id="bind-anidb" class="quiet" type="button">Привязать</button></div>
           <div class="cast-actions"><button id="anidb-open" class="quiet" type="button">Открыть AniDB в приложении</button><button id="anidb-episode" class="quiet" type="button" disabled>Страница серии</button><button id="anidb-xml-button" class="quiet" type="button">Загрузить файл состава</button><input id="anidb-xml" type="file" accept=".xml,text/xml,application/xml" hidden><button id="anidb-fetch" class="quiet" type="button">Обновить состав</button></div>
           <p id="cast-status" role="status" class="settings-description"></p><div id="cast-list"></div>
@@ -142,6 +142,12 @@
       <button id="edit-media" type="button" class="quiet manage-media"><span data-icon="import"></span>Добавить источник или перевод</button>
       <div class="shortcut-hint"><span><kbd>Пробел</kbd> пауза</span><span><kbd>←</kbd><kbd>→</kbd> <span id="seek-hint">10 сек</span></span><span><kbd>F</kbd> весь экран</span><span><kbd>M</kbd> звук</span></div>
     </dialog>
+    <dialog id="character-name-dialog" aria-labelledby="character-name-title"><form id="character-name-form">
+      <p class="eyebrow">ЛИЧНЫЕ ПОДПИСИ</p><h2 id="character-name-title">Имя персонажа</h2><p id="character-name-source" class="muted"></p>
+      <label for="character-name-input">Как показывать в этом аниме</label><input id="character-name-input" required maxlength="160" autocomplete="off">
+      <p class="muted">Меняется только твоя подпись. Заметка и исходные данные AniDB сохранятся.</p><p id="character-name-error" role="alert"></p>
+      <div class="dialog-actions"><button id="character-name-reset" type="button" class="quiet">Исходное имя</button><button id="character-name-cancel" type="button" class="quiet">Отмена</button><button type="submit" class="primary">Сохранить имя</button></div>
+    </form></dialog>
     <dialog id="character-photo-dialog" aria-labelledby="character-photo-title">
       <form id="character-photo-form">
         <p class="eyebrow">ЛИЦА ИСТОРИИ</p><h2 id="character-photo-title">Фотография персонажа</h2><p id="character-photo-name" class="muted"></p>

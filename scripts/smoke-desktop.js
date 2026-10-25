@@ -123,6 +123,17 @@ try {
   await page.locator('#anidb-fetch').click();
   await page.waitForFunction(() => !document.querySelector('#anidb-fetch').disabled);
   assert.equal(await page.locator('.character-photo').getAttribute('src'), 'https://photos.example.invalid/character.jpg', 'Portrait choice survives API refresh');
+  await page.getByRole('button', { name: 'Изменить имя: Test character', exact: true }).click();
+  await page.locator('#character-name-input').fill('Мой персонаж'); await page.getByRole('button', { name: 'Сохранить имя', exact: true }).click();
+  await page.locator('.character-note').fill('Моя заметка в настольном приложении'); await page.locator('.character-note').blur();
+  await page.locator('#anidb-fetch').click(); await page.waitForFunction(() => !document.querySelector('#anidb-fetch').disabled);
+  assert.equal(await page.locator('.cast-card h3').textContent(), 'Мой персонаж');
+  assert.equal(await page.locator('.character-note').inputValue(), 'Моя заметка в настольном приложении');
+  await page.reload(); await page.waitForFunction(() => document.querySelector('#hero-button').onclick !== null);
+  await page.getByRole('button', { name: 'Смотреть: Проверка desktop', exact: true }).click();
+  await page.locator('#cast-panel > summary').click();
+  assert.equal(await page.locator('.cast-card h3').textContent(), 'Мой персонаж');
+  assert.equal(await page.locator('.character-note').inputValue(), 'Моя заметка в настольном приложении');
   const apiRequests = await application.evaluate(() => globalThis.__anidbTestRequests);
   assert.equal(apiRequests.length, 1, 'AniDB cache must avoid a duplicate request');
   const apiURL = new URL(apiRequests[0]); assert.equal(apiURL.searchParams.get('aid'), '123'); assert.equal(apiURL.searchParams.get('client'), 'yorutestfixture');

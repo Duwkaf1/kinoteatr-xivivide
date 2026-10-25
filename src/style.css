@@ -553,3 +553,22 @@ dialog::backdrop { background: #090d14b0; }
 #character-photo-preview p { font-size: 11px; line-height: 1.7; color: var(--muted); }
 #character-photo-error { font-size: 12px; color: var(--accent); }
 @media (max-width: 650px) { #player-section { padding: 10px; } #cast-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } #character-photo-results { grid-template-columns: 1fr; } #character-photo-dialog .dialog-actions { gap: 7px; flex-wrap: wrap; } }
+
+.cast-context { margin: 3px 0 10px; font-size: 14px; font-weight: 550; color: var(--text); overflow-wrap: anywhere; }
+.character-heading { display: flex; align-items: flex-start; gap: 5px; }
+.cast-card .character-heading h3 { flex: 1; min-width: 0; margin-bottom: 8px; }
+.character-name-edit.icon-button { flex: 0 0 auto; width: 26px; height: 26px; min-height: 26px; padding: 5px; margin: -2px -4px 0 0; border-radius: 50%; color: var(--muted); background: transparent; box-shadow: none; }
+.character-name-edit.icon-button:hover { background: var(--accent-soft); color: var(--text); }
+.character-name-edit svg { width: 14px; height: 14px; }
+.character-note-field { margin: 0 0 8px; }
+.character-note { display: block; width: 100%; min-width: 0; height: 36px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--line) 65%, transparent); border-radius: 11px; color: var(--text); background: color-mix(in srgb, var(--surface-raised) 55%, transparent); font: inherit; font-size: 11px; line-height: 18px; resize: vertical; transition: background 160ms, border-color 160ms; }
+.character-note::placeholder { color: var(--subtle); }
+.character-note:hover { border-color: var(--line); }
+.character-note:focus { height: 90px; background: var(--surface); border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+.character-note-status { display: block; min-height: 14px; margin-top: 4px; font-size: 9px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+#character-name-dialog { width: min(490px, 94vw); padding: 26px; }
+#character-name-dialog h2 { margin: 0 0 12px; font-size: 23px; font-weight: 500; }
+#character-name-form > input { width: 100%; margin-top: 8px; }
+#character-name-form > p:not(.eyebrow) { font-size: 11px; line-height: 1.7; }
+#character-name-error { color: var(--accent); }
+@media (max-width: 650px) { #character-name-dialog .dialog-actions { flex-wrap: wrap; gap: 7px; } }

@@ -3,8 +3,10 @@ import { animeId } from './media-schema.js';
 import { mergeCastPhotos, validateCharacterPhoto } from './character-photos.js';
 import { characterPhotoPicker } from './character-photo-picker.js';
 import { icon } from './icons.js';
+import { characterDetailsEditor } from './character-details-editor.js';
 export function castPanel({ $, node, active, persist, toast }) {
   let cache = readCastCache(); let serial = 0;
+  const details = characterDetailsEditor({ $, node, changed: () => render() });
   const photos = characterPhotoPicker({ $, node, save: (releaseId, characterId, photo) => {
     const data = cache[releaseId]; const character = data?.characters.find(item => item.id === characterId);
     if (!character) throw new Error('Данные персонажа изменились. Открой выбор фотографии заново.');
@@ -16,7 +18,9 @@ export function castPanel({ $, node, active, persist, toast }) {
   const id = () => mapping()?.anidbId || (season() === 1 ? active()?.title.anidbId : null);
   function save(data) { cache[data.id] = data; try { saveCastCache(cache); } catch { toast('Каст показан до закрытия приложения: не удалось сохранить его на диске.'); } }
   function render() {
+    details.flush();
     serial++; const value = active(); if (!value) return;
+    $('#cast-context').textContent = `${value.title.title} · ${$('#cast-season').selectedOptions[0]?.textContent || 'Сезон 1'}`;
     $('#anidb-id').value = id() || ''; $('#cast-list').replaceChildren(); $('#cast-episode-editor').replaceChildren();
     const data = cache[id()]; const known = data && Array.isArray(data.characters) && Array.isArray(data.episodes);
     const episode = known ? data.episodes.find(item => item.number === String(value.episode.number)) : null;
@@ -27,16 +31,18 @@ export function castPanel({ $, node, active, persist, toast }) {
     const characters = perEpisode ? castForEpisode(data, value.episode.number) : data.characters;
     $('#cast-status').textContent = perEpisode ? characters === null ? 'В AniDB XML нет состава по сериям. Для этой серии данные ещё не отмечены; общий состав сезона не подставляется.' : `Серия ${value.episode.number} · отмечено вручную: ${characters.length}` : `${data.title || 'AniDB'} · состав сезона: ${characters.length} · обновлено ${new Date(data.updatedAt).toLocaleDateString('ru')}`;
     for (const character of characters || []) {
+      const personal = details.attach(character, { titleId: value.title.id, releaseId: data.id, characterId: character.id });
       const card = node('article', undefined, 'cast-card'); const role = { 'main character in': 'Главный персонаж', 'secondary cast in': 'Второстепенный персонаж', 'appears in': 'Эпизодическая роль' }[character.role] || character.role;
+      card.dataset.characterId = character.id;
       const portrait = node('div', undefined, 'character-portrait'); const fallback = node('span', undefined, 'character-photo-fallback'); fallback.append(icon('portrait'), node('span', 'Фотографии пока нет')); portrait.append(fallback);
       const source = character.photo?.url || character.imageUrl;
       if (source) {
-        const image = node('img', undefined, 'character-photo'); image.alt = character.name; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
+        const image = node('img', undefined, 'character-photo'); image.alt = personal.name; image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
         image.onload = () => { fallback.hidden = true; }; image.onerror = () => { image.remove(); fallback.lastElementChild.textContent = 'Фото недоступно'; };
         image.src = source; portrait.append(image);
       }
-      const edit = node('button', undefined, 'character-photo-edit icon-button'); edit.type = 'button'; edit.append(icon('image')); edit.setAttribute('aria-label', `Выбрать фото: ${character.name}`); edit.title = 'Выбрать фотографию'; edit.onclick = () => photos.open(character, data.id); portrait.append(edit);
-      const body = node('div', undefined, 'character-body'); body.append(node('h3', character.name), node('p', role || 'Персонаж', 'character-role'));
+      const edit = node('button', undefined, 'character-photo-edit icon-button'); edit.type = 'button'; edit.append(icon('image')); edit.setAttribute('aria-label', `Выбрать фото: ${personal.name}`); edit.title = 'Выбрать фотографию'; edit.onclick = () => photos.open(character, data.id); portrait.append(edit);
+      const body = node('div', undefined, 'character-body'); body.append(personal.heading, personal.note, node('p', role || 'Персонаж', 'character-role'));
       const actors = node('div', undefined, 'character-actors');
       for (const actor of character.actors) {
         const row = node('div', undefined, 'character-actor');
@@ -51,7 +57,9 @@ export function castPanel({ $, node, active, persist, toast }) {
     }
     const marked = data.manualEpisodes?.[String(value.episode.number)] || [];
     for (const character of data.characters) {
-      const label = node('label'); const input = node('input'); input.type = 'checkbox'; input.value = character.id; input.checked = marked.includes(character.id); label.append(input, node('span', character.name)); $('#cast-episode-editor').append(label);
+      const label = node('label'); const input = node('input'); input.type = 'checkbox'; input.value = character.id; input.checked = marked.includes(character.id);
+      const name = details.name(character, { titleId: value.title.id, releaseId: data.id, characterId: character.id });
+      label.append(input, node('span', name)); $('#cast-episode-editor').append(label);
     }
   }
   function episodeChanged() {
