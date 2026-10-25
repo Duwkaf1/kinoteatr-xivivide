@@ -23,8 +23,57 @@ $sentinel = Join-Path $profileDir "installer-test-$([guid]::NewGuid()).txt"
 $savedData = 'Библиотека, заметки и собственная тема — сохранить.'
 [IO.File]::WriteAllText($sentinel, $savedData)
 $shell = New-Object -ComObject WScript.Shell
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
+Add-Type @'
+using System;
+using System.Text;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+public static class InstallerUI {
+    private delegate bool EnumCallback(IntPtr window, IntPtr state);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumCallback callback, IntPtr state);
+    [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, EnumCallback callback, IntPtr state);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowTextW(IntPtr window, StringBuilder text, int count);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool IsWindowEnabled(IntPtr window);
+    [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
+    [DllImport("user32.dll")] private static extern IntPtr SendMessageW(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
+    private static string Text(IntPtr window) { var text = new StringBuilder(512); GetWindowTextW(window, text, text.Capacity); return text.ToString(); }
+    private static bool Matches(IntPtr window, string name) { return Text(window).Replace("&", "").Trim() == name; }
+    public static IntPtr Control(IntPtr parent, string name) {
+        IntPtr result = IntPtr.Zero;
+        EnumChildWindows(parent, (window, state) => {
+            if (IsWindowVisible(window) && IsWindowEnabled(window) && Matches(window, name)) { result = window; return false; }
+            return true;
+        }, IntPtr.Zero);
+        return result;
+    }
+    public static IntPtr Button(int process, string name) {
+        IntPtr result = IntPtr.Zero;
+        EnumWindows((window, state) => {
+            uint owner; GetWindowThreadProcessId(window, out owner);
+            if (owner == process) result = Control(window, name);
+            return result == IntPtr.Zero;
+        }, IntPtr.Zero);
+        return result;
+    }
+    public static string Describe(int process) {
+        var controls = new List<string>();
+        EnumWindows((window, state) => {
+            uint owner; GetWindowThreadProcessId(window, out owner);
+            if (owner == process) {
+                controls.Add("window: " + Text(window));
+                EnumChildWindows(window, (child, unused) => { var text = Text(child); if (text.Length > 0 && controls.Count < 24) controls.Add(text); return true; }, IntPtr.Zero);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return string.Join(" | ", controls);
+    }
+    public static void Click(IntPtr button) { if (!PostMessageW(button, 0xF5, IntPtr.Zero, IntPtr.Zero)) throw new Exception("Cannot click installer button"); }
+    public static void Uncheck(IntPtr checkbox) { SendMessageW(checkbox, 0xF1, IntPtr.Zero, IntPtr.Zero); }
+}
+'@
 
 function Assert-True($condition, $message) { if (-not $condition) { throw $message } }
 function Run-Silent($file, [string[]]$arguments) {
@@ -36,18 +85,11 @@ function Wait-Button($process, $name) {
     $deadline = [DateTime]::UtcNow.AddMinutes(3)
     while ([DateTime]::UtcNow -lt $deadline) {
         if ($process.HasExited) { throw "Installer closed before '$name' (exit $($process.ExitCode))" }
-        $process.Refresh()
-        if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
-            $window = [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-            $condition = New-Object Windows.Automation.AndCondition(
-                (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Button)),
-                (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $name)))
-            $button = $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
-            if ($button -and $button.Current.IsEnabled) { return $button }
-        }
+        $button = [InstallerUI]::Button($process.Id, $name)
+        if ($button -ne [IntPtr]::Zero) { return $button }
         Start-Sleep -Milliseconds 300
     }
-    throw "Installer did not show '$name'"
+    throw "Installer did not show '$name'. $([InstallerUI]::Describe($process.Id))"
 }
 function Assert-Installed($directory) {
     Assert-True (Test-Path (Join-Path $directory 'Yoru.exe')) 'Missing installed EXE'
@@ -81,16 +123,12 @@ try {
     # Exercise the actual visible Russian UI, rather than only /S.
     $process = Start-Process -FilePath $installer -PassThru
     $installButton = Wait-Button $process 'Установить'
-    $invoke = $installButton.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)
-    $invoke.Invoke()
+    [InstallerUI]::Click($installButton)
     $finishButton = Wait-Button $process 'Готово'
-    $window = [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-    $condition = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, 'Открыть Yoru')
-    $checkbox = $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
-    Assert-True ($null -ne $checkbox) 'Missing launch checkbox'
-    $toggle = $checkbox.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
-    if ($toggle.Current.ToggleState -eq [Windows.Automation.ToggleState]::On) { $toggle.Toggle() }
-    $finishButton.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $checkbox = [InstallerUI]::Control([InstallerUI]::GetParent($finishButton), 'Открыть Yoru')
+    Assert-True ($checkbox -ne [IntPtr]::Zero) 'Missing launch checkbox'
+    [InstallerUI]::Uncheck($checkbox)
+    [InstallerUI]::Click($finishButton)
     Assert-True ($process.WaitForExit(30000)) 'Installer did not finish'
     Assert-True ($process.ExitCode -eq 0) 'Interactive installation failed'
     Assert-Installed $installDir
