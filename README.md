@@ -91,7 +91,7 @@ npm run build
 npm run test:desktop
 ```
 
-**[Windows CI 0.7.0 — успешно](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40173372346)**: установка, 45 unit-тестов, production-сборка, запуск Electron (включая OLED, zoom 100/125/150/200% и малое окно), упаковка и загрузка ZIP. [Скачать Windows ZIP из артефактов этой сборки](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40173372346/artifacts/12590897532). Артефакты Actions имеют ограниченный срок хранения.
+**[Windows CI 0.7.1 — успешно](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40174535035)**: установка, 46 unit-тестов, production-сборка, запуск Electron (включая OLED, zoom 100/125/150/200% и малое окно), упаковка и загрузка ZIP. [Скачать Windows ZIP из артефактов этой сборки](https://github.com/Duwkaf1/kinoteatr-xivivide/actions/runs/40174535035/artifacts/12591776963). Артефакты Actions имеют ограниченный срок хранения.
 
 В Linux-среде прошли **46 unit-тестов**, **38 браузерных сценариев** и настоящий Electron через `file://`. Проверены основные сценарии, темы, контраст готовых палитр, клавиатура, диалоги и уменьшение движения. Масштабы 100/125/150/200% проверены эмуляцией deviceScaleFactor/размера окна в Chromium и zoom в Electron; также проверено окно 640×480. Это не физическое переключение DPI монитора Windows.
 
