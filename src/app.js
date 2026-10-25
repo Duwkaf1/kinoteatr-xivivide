@@ -8,6 +8,7 @@ import { viewingControls } from './viewing-controls.js';
 import { castPanel } from './cast-panel.js';
 import { languageCode } from './media-schema.js';
 import { episodeOriginalLanguage } from './watching.js';
+import { settingsControls } from './settings-controls.js';
 
 const $ = selector => document.querySelector(selector);
 const loaded = loadState();
@@ -32,6 +33,7 @@ let searchTimer;
 let hlsModule;
 let viewing; let casts;
 let overviewPosters = '';
+let settingsUI;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 decorateIcons();
 function applyPreferences() {
@@ -42,14 +44,13 @@ function applyPreferences() {
     $(`#custom-${key}`).value = preferences.custom[key];
     if (document.activeElement !== $(`#hex-${key}`)) { $(`#hex-${key}`).value = preferences.custom[key]; $(`#hex-${key}`).removeAttribute('aria-invalid'); }
   }
-  $('#custom-radius').value = String(preferences.custom.radius);
-  $('#custom-radius-value').textContent = `${preferences.custom.radius} px`;
+  settingsUI?.render();
   const ratio = Math.min(contrast(preferences.custom.text, preferences.custom.background), contrast(preferences.custom.text, preferences.custom.panel));
   $('#custom-contrast').textContent = ratio < 4.5 ? 'У текста низкий контраст с фоном или панелями — его может быть сложно читать. Попробуй более светлый или тёмный цвет.' : 'Контраст основного текста с фоном и панелями достаточный.';
   document.body.dataset.profile = preferences.profile;
   document.body.classList.toggle('compact-ui', preferences.interface.compact);
   document.documentElement.style.setProperty('--text-scale', String(preferences.interface.textSize / 100));
-  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero;
+  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero || preferences.profile === 'economy';
   $('#manual-buffer-settings').hidden = preferences.profile !== 'manual';
   $('#manual-back-buffer').max = String(Math.min(30, preferences.manual.bufferSeconds));
   for (const input of document.querySelectorAll('[data-settings-group]')) {
@@ -67,15 +68,14 @@ function applyPreferences() {
   if (reduce) for (const animation of document.getAnimations()) animation.cancel();
   $('#animations-setting').checked = preferences.animations;
   $('#animations-setting').disabled = preferences.profile === 'economy';
-  $('#animations-hint').textContent = preferences.profile === 'economy' ? 'В режиме «Экономия» эффекты отключены.' : reducedMotion.matches ? 'Эффекты отключены системной настройкой уменьшения движения.' : 'Учитывается системная настройка уменьшения движения.';
+  $('#animations-hint').textContent = preferences.profile === 'economy' ? 'В режиме «Производительность» эффекты отключены.' : reducedMotion.matches ? 'Эффекты отключены системной настройкой уменьшения движения.' : 'Учитывается системная настройка уменьшения движения.';
   $('#auto-next-setting').checked = preferences.autoNext;
   $('#default-quality').value = String(state.quality);
   $('#quality').value = String(active?.quality ?? state.quality);
   document.documentElement.style.setProperty('--subtitle-size', `${24 * preferences.watching.subtitleSize / 100}px`);
   document.documentElement.style.setProperty('--subtitle-bg', preferences.watching.subtitleBackground ? '#000b' : 'transparent');
   for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
-  for (const input of document.querySelectorAll('input[name="profile"]')) input.checked = input.value === preferences.profile;
-  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Экономия', manual: 'Вручную' }[preferences.profile];
+  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Производительность', manual: 'Свои настройки' }[preferences.profile];
   $('#footer-mode').textContent = `${label} · ${state.quality}p по умолчанию · Без скачивания серий`;
 }
 function storePreferences() {
@@ -97,18 +97,17 @@ for (const key of ['background', 'panel', 'text', 'accent']) {
     preferences.custom[key] = value.toLowerCase(); event.target.removeAttribute('aria-invalid'); $('#custom-color-error').textContent = ''; applyPreferences(); storePreferences();
   };
 }
-$('#custom-radius').oninput = event => { preferences.custom.radius = Number(event.target.value); applyPreferences(); storePreferences(); };
 $('#reset-custom-theme').onclick = () => {
   preferences.custom = { ...DEFAULT_CUSTOM }; $('#custom-color-error').textContent = '';
   for (const input of document.querySelectorAll('.custom-color-field input[type="text"]')) input.removeAttribute('aria-invalid');
   applyPreferences(); storePreferences();
 };
-for (const input of document.querySelectorAll('input[name="profile"]')) input.onchange = () => {
-  preferences.profile = input.value;
-  if (preferences.profile !== 'manual') state.quality = profileConfig(preferences.profile).quality;
-  else $('#advanced-settings').open = true;
+function selectProfile(profile) {
+  preferences.profile = profile;
+  // Rendering presets must not select a video resolution missing from a title.
+  // Keep the user's video quality; this slider controls the UI and memory budget.
   visibleCount = pageSize(); persist(true); applyPreferences(); storePreferences(); renderLibrary();
-};
+}
 $('#animations-setting').onchange = event => { preferences.animations = event.target.checked; applyPreferences(); storePreferences(); };
 $('#auto-next-setting').onchange = event => { preferences.autoNext = event.target.checked; applyPreferences(); storePreferences(); };
 $('#default-quality').onchange = event => { state.quality = Number(event.target.value); persist(true); applyPreferences(); $('#settings-save-status').textContent = writable ? 'Настройки сохранены' : 'Качество применено до закрытия приложения: сохранение недоступно.'; };
@@ -142,8 +141,8 @@ $('#reset-advanced').onclick = () => {
   visibleCount = pageSize(); applyPreferences(); storePreferences(); renderLibrary();
   toast('Ручные параметры сброшены. Библиотека, оформление и разрешение сохранены.');
 };
+settingsUI = settingsControls({ $, preferences, store: storePreferences, onProfile: selectProfile });
 applyPreferences();
-if (preferences.profile === 'manual') $('#advanced-settings').open = true;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -173,8 +172,9 @@ function recordProgress(force = false) {
 function updateOverview() {
   $('#library-count').textContent = state.titles.length;
   $('#favorite-count').textContent = state.favorites.length;
-  const recent = state.titles.filter(t => Object.hasOwn(state.progress, t.id)).sort((a, b) => state.progress[b.id].updatedAt - state.progress[a.id].updatedAt)[0];
-  const images = [...new Set([recent?.posterUrl, ...state.titles.slice().reverse().map(title => title.posterUrl)].filter(Boolean))].slice(0, 3);
+  const showOverview = view === 'library' && preferences.profile !== 'economy' && preferences.interface.showHero;
+  const recent = showOverview ? state.titles.reduce((latest, title) => Object.hasOwn(state.progress, title.id) && (!latest || state.progress[title.id].updatedAt > state.progress[latest.id].updatedAt) ? title : latest, null) : null;
+  const images = !showOverview ? [] : [...new Set([recent?.posterUrl, ...state.titles.slice().reverse().map(title => title.posterUrl)].filter(Boolean))].slice(0, 3);
   const signature = JSON.stringify(images);
   if (signature !== overviewPosters) {
     overviewPosters = signature;
@@ -192,6 +192,8 @@ function updateOverview() {
 }
 
 function renderLibrary() {
+  updateOverview();
+  if (!['library', 'favorites', 'history'].includes(view)) { $('#library-grid').replaceChildren(); return; }
   const query = $('#search').value.trim().toLocaleLowerCase('ru');
   let titles = state.titles.filter(t => t.title.toLocaleLowerCase('ru').includes(query));
   if (view === 'favorites') titles = titles.filter(t => state.favorites.includes(t.id));
@@ -201,7 +203,6 @@ function renderLibrary() {
   else titles.reverse();
   $('#result-count').textContent = query ? `Найдено: ${titles.length}` : `В коллекции: ${titles.length}`;
   $('#load-more').hidden = titles.length <= visibleCount;
-  updateOverview();
   const grid = $('#library-grid');
   const fragment = document.createDocumentFragment();
   if (!titles.length) {
@@ -271,15 +272,12 @@ function changeView(next) {
   const libraryVisible = ['library', 'favorites', 'history'].includes(view);
   $('#sources-view').hidden = view !== 'sources'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
   $('#settings-view').hidden = view !== 'settings';
-  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero;
+  $('#hero').hidden = view !== 'library' || !preferences.interface.showHero || preferences.profile === 'economy';
+  $('main').scrollTop = 0;
+  $('#view-title').focus({ preventScroll: true });
   renderLibrary(); reveal(view === 'sources' ? $('#sources-view') : view === 'settings' ? $('#settings-view') : $('#library-view'));
 }
 for (const button of document.querySelectorAll('[data-view]')) { button.title = button.getAttribute('aria-label'); button.onclick = () => changeView(button.dataset.view); }
-for (const button of document.querySelectorAll('[data-settings-jump]')) button.onclick = () => {
-  const target = document.getElementById(button.dataset.settingsJump);
-  if (target instanceof HTMLDetailsElement) target.open = true;
-  target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'start', behavior: motionEnabled() ? 'smooth' : 'instant' });
-};
 $('#home-button').onclick = () => changeView('library');
 $('#load-more').onclick = () => { visibleCount += pageSize(); renderLibrary(); };
 $('#sort').onchange = () => { visibleCount = pageSize(); renderLibrary(); };

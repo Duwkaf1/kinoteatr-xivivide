@@ -2,6 +2,10 @@ import { subtitleKind } from './media-labels.js';
 export const SUBTITLE_LIMIT = 2 * 1024 * 1024;
 function guardRendererDisposal(renderer) {
   const dispose = renderer.dispose.bind(renderer); let disposed = false;
+  const resize = renderer.resize.bind(renderer);
+  // libass schedules a second resize 100 ms after window/element changes.
+  // Its timer can outlive dispose; ignore work belonging to a closed renderer.
+  renderer.resize = (...args) => { if (!disposed) return resize(...args); };
   renderer.dispose = () => {
     if (disposed) return;
     disposed = true;

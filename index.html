@@ -6,6 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: https:; media-src https: blob:; connect-src 'self' https: blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Yoru — аниме</title>
     <link rel="icon" type="image/png" href="/yoru-icon.png">
+    <link rel="preload" href="/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <script src="/theme-init.js"></script>
     <link rel="stylesheet" href="/src/style.css">
   </head>
@@ -36,9 +37,20 @@
         <div class="info-box"><h3>Как работает восстановление</h3><p>Для прямых видеоссылок: повторная попытка, затем другой источник той же серии. Выбранное качество сохраняется. При смене озвучки появится сообщение. При полном отказе источников воспроизведение остановится с объяснением.</p><p>Ссылка на страницу сайта не является прямой ссылкой на видео. Для каждого сайта нужен проверенный адаптер.</p></div>
       </section>
       <section id="settings-view" hidden aria-label="Настройки приложения">
-        <div class="settings-intro"><span class="settings-orb" data-icon="settings"></span><div><p class="eyebrow">ПОДСТРОЙ ПОД СЕБЯ</p><h2>Твой комфорт — в деталях</h2><p class="muted">Оформление и режим просмотра сохраняются на этом устройстве.</p></div></div>
-        <nav class="settings-jumps" aria-label="Группы настроек"><button type="button" data-settings-jump="appearance-settings">Оформление</button><button type="button" data-settings-jump="performance-settings">Производительность</button><button type="button" data-settings-jump="playback-settings">Просмотр</button><button type="button" data-settings-jump="advanced-settings">Подробно</button></nav>
-        <fieldset id="appearance-settings" class="settings-card"><legend>Оформление</legend><p class="settings-description">Пять готовых настроений и твоя собственная палитра. Изменения видны сразу.</p><div class="theme-grid">
+        <div class="settings-tabs" role="tablist" aria-label="Настройки приложения">
+          <button id="settings-basic-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-basic">Основные</button>
+          <button id="settings-advanced-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-detailed" tabindex="-1">Дополнительно</button>
+        </div>
+        <div id="settings-basic" role="tabpanel" aria-labelledby="settings-basic-tab">
+          <section id="performance-settings" class="settings-card performance-card" aria-labelledby="performance-title">
+            <div class="settings-section-heading"><span class="settings-orb" data-icon="balance"></span><div><h2 id="performance-title">Как будет работать Yoru</h2><p class="settings-description">Один ползунок — приложение подстроится под твой компьютер.</p></div></div>
+            <div class="performance-current"><strong id="performance-name">Качество</strong><span id="performance-description">Чёткое видео, красивые обложки и мягкие анимации.</span></div>
+            <label class="sr-only" for="performance-level">Режим работы приложения</label>
+            <input id="performance-level" class="performance-slider" type="range" min="0" max="2" step="1" value="2" aria-describedby="performance-description performance-note">
+            <div class="performance-stops" aria-hidden="true"><span>Производительность</span><span>Баланс</span><span>Качество</span></div>
+            <p id="performance-note" class="settings-hint">Оформление меняется сразу. Выбранное видео и озвучка сохраняются.</p>
+          </section>
+        <section id="appearance-settings" class="settings-card" aria-labelledby="appearance-title"><h2 id="appearance-title">Оформление</h2><p class="settings-description">Пять готовых настроений и твоя собственная палитра. Изменения видны сразу.</p><div class="theme-grid">
           <label class="theme-choice"><input type="radio" name="theme" value="night"><span class="theme-preview preview-night"><span></span><span></span><span></span></span><span class="choice-title">Тёплая ночь</span><span class="choice-description">Графит и мягкий янтарь</span></label>
           <label class="theme-choice"><input type="radio" name="theme" value="oled"><span class="theme-preview preview-oled"><span></span><span></span><span></span></span><span class="choice-title">OLED</span><span class="choice-description">Чёрный фон, минимум света</span></label>
           <label class="theme-choice"><input type="radio" name="theme" value="nord"><span class="theme-preview preview-nord"><span></span><span></span><span></span></span><span class="choice-title">Север</span><span class="choice-description">Сумерки и голубой лёд</span></label>
@@ -47,33 +59,35 @@
           <label class="theme-choice"><input type="radio" name="theme" value="custom"><span class="theme-preview preview-custom"><span></span><span></span><span></span></span><span class="choice-title">Своя</span><span class="choice-description">Твои цвета и скругления</span></label>
         </div>
         <div id="custom-theme-editor" class="custom-theme-editor" hidden>
-          <div class="custom-editor-heading"><div><h3>Собери своё настроение</h3><p>Выбери цвет в палитре или введи HEX-код. Панель редактора остаётся контрастной.</p></div><button id="reset-custom-theme" class="quiet" type="button">Вернуть исходные цвета</button></div>
+          <div class="custom-editor-heading"><div><h3>Собери своё настроение</h3><p>Выбери любимые цвета. Результат сразу виден в приложении.</p></div><button id="reset-custom-theme" class="quiet" type="button">Вернуть исходные цвета</button></div>
           <div class="custom-colors">
             <div class="custom-color-field"><label for="custom-background">Фон</label><div><input id="custom-background" type="color" aria-label="Цвет фона"><input id="hex-background" type="text" maxlength="7" spellcheck="false" aria-label="HEX фона" placeholder="#15171c"></div></div>
             <div class="custom-color-field"><label for="custom-panel">Панели</label><div><input id="custom-panel" type="color" aria-label="Цвет панелей"><input id="hex-panel" type="text" maxlength="7" spellcheck="false" aria-label="HEX панелей" placeholder="#20232b"></div></div>
             <div class="custom-color-field"><label for="custom-text">Текст</label><div><input id="custom-text" type="color" aria-label="Цвет текста"><input id="hex-text" type="text" maxlength="7" spellcheck="false" aria-label="HEX текста" placeholder="#eeeef2"></div></div>
             <div class="custom-color-field"><label for="custom-accent">Акцент</label><div><input id="custom-accent" type="color" aria-label="Цвет акцента"><input id="hex-accent" type="text" maxlength="7" spellcheck="false" aria-label="HEX акцента" placeholder="#f2c48f"></div></div>
           </div>
-          <label class="radius-control" for="custom-radius"><span>Скругление элементов</span><input id="custom-radius" type="range" min="12" max="36" step="1"><output id="custom-radius-value" for="custom-radius">28 px</output></label>
+          <div id="radius-editor" class="radius-editor">
+            <div class="radius-heading"><label for="custom-radius">Форма кнопок и карточек</label><output id="custom-radius-value" for="custom-radius">Мягкая</output></div>
+            <div class="radius-control"><span>Сдержаннее</span><input id="custom-radius" type="range" min="12" max="36" step="1" aria-describedby="radius-help"><span>Округлее</span></div>
+            <div class="radius-preview-actions"><p id="radius-help">Наведи на ползунок или измени форму, чтобы увидеть пример.</p><button id="radius-preview-toggle" type="button" class="quiet" aria-controls="radius-preview" aria-expanded="false" hidden>Показать пример</button></div>
+            <div id="radius-preview" class="radius-preview" role="region" aria-label="Пример скругления" hidden><div class="radius-sample-card"><span data-icon="moon"></span><strong>Твоя следующая история</strong><p>Так будут выглядеть карточки и кнопки в этой теме.</p><span class="primary" aria-hidden="true">Смотреть аниме</span></div></div>
+          </div>
           <p id="custom-color-error" role="alert"></p><p id="custom-contrast" role="status" aria-live="polite"></p>
           <p class="custom-editor-note">Текст на основных кнопках подбирается автоматически. Своя тема сохранится, даже если временно выбрать готовую.</p>
-        </div></fieldset>
-        <fieldset id="performance-settings" class="settings-card"><legend>Качество и производительность</legend><p class="settings-description">Выбери подходящий режим. Разрешение можно настроить отдельно ниже.</p><div class="profile-grid">
-          <label class="profile-choice"><input type="radio" name="profile" value="quality"><span class="profile-icon" data-icon="spark"></span><span class="choice-title">Качество</span><span class="choice-description">1080p · буфер ≈ 30 секунд<br>Плавные эффекты и чёткая картинка</span></label>
-          <label class="profile-choice"><input type="radio" name="profile" value="balanced"><span class="profile-icon" data-icon="balance"></span><span class="choice-title">Баланс</span><span class="choice-description">720p · буфер ≈ 20 секунд<br>Комфортный повседневный просмотр</span></label>
-          <label class="profile-choice"><input type="radio" name="profile" value="economy"><span class="profile-icon" data-icon="leaf"></span><span class="choice-title">Экономия</span><span class="choice-description">480p · буфер ≈ 12 секунд<br>Меньше карточек, эффекты отключены</span></label>
-          <label class="profile-choice"><input type="radio" name="profile" value="manual"><span class="profile-icon" data-icon="settings"></span><span class="choice-title">Вручную</span><span class="choice-description">Свой буфер и количество карточек<br>Разрешение выбирается отдельно</span></label>
-        </div><p class="settings-hint">Размер буфера потокового видео ориентировочный и зависит от видео. У альтернативного плеера и обычных видеофайлов собственная буферизация. Ручной буфер относится к потоковому видео в основном плеере. Экономия уменьшает объём буфера и декорации интерфейса; нагрузка процессора зависит и от самого видео.</p></fieldset>
-        <section id="playback-settings" class="settings-card" aria-labelledby="playback-settings-title"><h3 id="playback-settings-title">Просмотр и удобство</h3>
-          <div class="setting-row"><div><label for="default-quality">Качество по умолчанию</label><p>Самостоятельно не снижается. Источник должен поддерживать выбранное разрешение.</p></div><select id="default-quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></div>
-          <div class="setting-row"><div><label for="animations-setting">Плавные анимации</label><p id="animations-hint">Учитывается системная настройка уменьшения движения.</p></div><input id="animations-setting" class="switch" type="checkbox" role="switch"></div>
+        </div></section>
+        <section id="playback-settings" class="settings-card" aria-labelledby="playback-settings-title"><h2 id="playback-settings-title">Просмотр</h2>
           <div class="setting-row"><div><label for="auto-next-setting">Следующая серия автоматически</label><p>После завершения серии продолжать просмотр по списку.</p></div><input id="auto-next-setting" class="switch" type="checkbox" role="switch"></div>
         </section>
-        <details id="advanced-settings" class="settings-card advanced-settings"><summary>Подробная настройка приложения</summary><p class="settings-description">Параметры под твой компьютер, интернет и привычки. Готовые режимы можно использовать как отправную точку.</p>
-          <div id="manual-buffer-settings" hidden><h3>Свой буфер и библиотека</h3><p class="settings-hint">Буфер относится к потокового видео. Его размер не равен всей памяти приложения. Маленький буфер может чаще останавливаться на нестабильном интернете.</p>
-            <div class="setting-row"><div><label for="manual-buffer">Буфер вперёд, секунды</label><p>От 5 до 90 секунд. Больше — выше расход памяти, но больше запаса видео.</p></div><input id="manual-buffer" type="number" min="5" max="90" step="1" data-settings-group="manual" data-setting="bufferSeconds" data-numeric="true"></div>
-            <div class="setting-row"><div><label for="manual-back-buffer">Буфер назад, секунды</label><p>От 0 до 30, не больше буфера вперёд. Помогает перематывать уже просмотренный фрагмент.</p></div><input id="manual-back-buffer" type="number" min="0" max="30" step="1" data-settings-group="manual" data-setting="backBufferSeconds" data-numeric="true"></div>
-            <div class="setting-row"><div><label for="manual-memory">Ориентир размера буфера, МиБ</label><p>От 8 до 128 МиБ. Фактический размер зависит от потока и длительности сегментов.</p></div><input id="manual-memory" type="number" min="8" max="128" step="1" data-settings-group="manual" data-setting="memoryMB" data-numeric="true"></div>
+        </div>
+        <div id="settings-detailed" role="tabpanel" aria-labelledby="settings-advanced-tab" hidden>
+        <section id="advanced-settings" class="settings-card advanced-settings" aria-labelledby="advanced-title"><h2 id="advanced-title">Подстрой под себя</h2><p class="settings-description">Эти параметры можно оставить как есть. Готовые режимы уже настроены для повседневного просмотра.</p>
+          <div class="setting-row"><div><label for="default-quality">Качество по умолчанию</label><p>Самостоятельно не снижается. Источник должен поддерживать выбранное разрешение.</p></div><select id="default-quality"><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></div>
+          <div class="setting-row"><div><label for="animations-setting">Плавные анимации</label><p id="animations-hint">Учитывается системная настройка уменьшения движения.</p></div><input id="animations-setting" class="switch" type="checkbox" role="switch"></div>
+          <div class="setting-row"><div><label for="manual-mode">Свои настройки работы</label><p>Включи, если хочешь отдельно настроить загрузку видео и библиотеку. Возврат к ползунку включает готовый режим.</p></div><input id="manual-mode" class="switch" type="checkbox" role="switch"></div>
+          <div id="manual-buffer-settings" hidden><h3>Загрузка видео и библиотека</h3><p class="settings-hint">Приложение заранее загружает небольшой запас видео. Больший запас помогает при нестабильном интернете, но занимает больше памяти.</p>
+            <div class="setting-row"><div><label for="manual-buffer">Запас видео вперёд, секунд</label><p>От 5 до 90 секунд. Больше — выше расход памяти, но больше запаса видео.</p></div><input id="manual-buffer" type="number" min="5" max="90" step="1" data-settings-group="manual" data-setting="bufferSeconds" data-numeric="true"></div>
+            <div class="setting-row"><div><label for="manual-back-buffer">Сохранять просмотренный фрагмент, секунд</label><p>От 0 до 30, не больше буфера вперёд. Помогает перематывать уже просмотренный фрагмент.</p></div><input id="manual-back-buffer" type="number" min="0" max="30" step="1" data-settings-group="manual" data-setting="backBufferSeconds" data-numeric="true"></div>
+            <div class="setting-row"><div><label for="manual-memory">Память для запаса видео, МБ</label><p>Обычно менять не нужно. Фактический расход зависит от самого видео.</p></div><input id="manual-memory" type="number" min="8" max="128" step="1" data-settings-group="manual" data-setting="memoryMB" data-numeric="true"></div>
             <div class="setting-row"><div><label for="manual-cards">Карточек за один раз</label><p>Меньше карточек — легче интерфейс. Поиск охватывает всю библиотеку.</p></div><select id="manual-cards" data-settings-group="manual" data-setting="cardsPerPage" data-numeric="true"><option>12</option><option>24</option><option>36</option><option>48</option></select></div>
           </div>
           <h3>Восстановление и озвучки</h3>
@@ -97,8 +111,8 @@
           <div class="setting-row"><div><label for="hero-setting">Блок продолжения на главной</label><p>Можно скрыть, чтобы сразу видеть библиотеку.</p></div><input id="hero-setting" type="checkbox" role="switch" class="switch" data-settings-group="interface" data-setting="showHero"></div>
           <div class="setting-row"><div><label for="cinema-setting">Открывать видео в режиме «Кинозал»</label><p>При следующем запуске видео боковые панели будут скрыты.</p></div><input id="cinema-setting" type="checkbox" role="switch" class="switch" data-settings-group="interface" data-setting="cinema"></div>
           <p id="advanced-error" role="alert"></p><button id="reset-advanced" type="button" class="quiet">Сбросить ручные параметры</button><p class="settings-hint">Сброс не удаляет библиотеку, историю, свою тему и выбранное разрешение.</p>
-        </details>
-        <div class="settings-bottom"><p>Буфер, восстановление и озвучки применятся при следующем запуске видео. Громкость, скорость и оформление меняются сразу.</p><span id="settings-save-status" role="status" aria-live="polite">Изменения сохраняются автоматически</span></div>
+        </section></div>
+        <div class="settings-bottom"><p>Всё сохраняется автоматически. Изменение настроек не прерывает текущую серию.</p><span id="settings-save-status" role="status" aria-live="polite">Изменения сохраняются автоматически</span></div>
       </section>
       <section id="player-section" hidden>
         <div class="player-heading"><h2 id="playing-title"></h2><div class="player-heading-actions">

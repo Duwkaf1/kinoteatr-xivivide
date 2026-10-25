@@ -44,6 +44,11 @@ function fulfillMedia(route, data, contentType) {
   return route.fulfill({ status: match ? 206 : 200, contentType, headers, body: data.subarray(start, end + 1) });
 }
 async function open(page) { await page.goto('http://127.0.0.1:5173'); }
+async function detailedSettings(page) { await page.locator('#settings-advanced-tab').click(); }
+async function chooseProfile(page, profile) {
+  if (profile === 'manual') { await detailedSettings(page); await page.locator('#manual-mode').check(); }
+  else { await page.locator('#settings-basic-tab').click(); await page.locator('#performance-level').fill(String(['economy','balanced','quality'].indexOf(profile))); }
+}
 async function playerSettings(page) { if (!await page.locator('#player-settings-dialog').isVisible()) await page.locator('#open-player-settings').click(); }
 async function closePlayerSettings(page) { if (await page.locator('#player-settings-dialog').isVisible()) await page.locator('#close-player-settings').click(); }
 async function castScope(page, scope) { await page.locator('#open-cast-settings').click(); await page.locator('#cast-scope').selectOption(scope); await page.locator('#done-cast-settings').click(); }
@@ -313,7 +318,7 @@ test('system reduced motion and persisted animation preference disable motion', 
   expect(await page.locator('#add-dialog').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('#animations-setting').uncheck();
+  await detailedSettings(page); await page.locator('#animations-setting').uncheck();
   await expect(page.locator('#animations-setting')).not.toBeChecked();
   await page.reload();
   await expect(page.locator('body')).toHaveClass(/less-motion/);
@@ -328,7 +333,7 @@ test('design preview at normal and minimum desktop widths has no horizontal over
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.locator('.anime-card').last().scrollIntoViewIfNeeded();
   await expect(page.locator('.artwork.has-poster')).toHaveCount(8);
-  await page.evaluate(() => scrollTo(0, 0));
+  await page.locator('main').evaluate(element => element.scrollTo(0, 0));
   await page.screenshot({ path: 'test-results/design-library.png', fullPage: true });
   await page.setViewportSize({ width: 960, height: 680 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -362,15 +367,15 @@ test('all four themes apply to the whole app and the selected theme survives rel
 test('economy mode and quality persist for an empty library and limit rendering', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('input[name="profile"][value="economy"]').check();
-  await expect(page.locator('#default-quality')).toHaveValue('480');
+  await chooseProfile(page, 'economy');
+  await expect(page.locator('#default-quality')).toHaveValue('1080');
   await expect(page.locator('body')).toHaveClass(/economy-mode/);
   await expect(page.locator('#animations-setting')).toBeDisabled();
   await page.reload();
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await expect(page.locator('input[name="profile"][value="economy"]')).toBeChecked();
-  await expect(page.locator('#default-quality')).toHaveValue('480');
-  await page.locator('#default-quality').selectOption('720');
+  await expect(page.locator('#performance-level')).toHaveValue('0');
+  await expect(page.locator('#default-quality')).toHaveValue('1080');
+  await detailedSettings(page); await page.locator('#default-quality').selectOption('720');
   await page.reload();
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await expect(page.locator('#default-quality')).toHaveValue('720');
@@ -389,15 +394,15 @@ test('changing mode does not restart or unpause the current video', async ({ pag
   await expect(page.locator('#playback-status')).toContainText('воспроизведение');
   await page.locator('video').evaluate(video => { video.pause(); video.dataset.original = 'yes'; });
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('input[name="profile"][value="economy"]').check();
+  await chooseProfile(page, 'economy');
   await expect(page.locator('video')).toHaveAttribute('data-original', 'yes');
   await expect(page.locator('video')).toHaveJSProperty('paused', true);
   await expect(page.locator('#quality')).toHaveValue('1080');
-  await expect(page.locator('#default-quality')).toHaveValue('480');
+  await expect(page.locator('#default-quality')).toHaveValue('1080');
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
-  await expect(page.locator('#playback-status')).toContainText('480p · воспроизведение');
+  await expect(page.locator('#playback-status')).toContainText('1080p · воспроизведение');
 });
 
 test('automatic next episode can be disabled without disabling manual next', async ({ page }) => {
@@ -425,7 +430,7 @@ test('custom colors and roundness apply live, persist and survive preset switchi
     await expect(page.locator(`#custom-${key}`)).toHaveValue(value);
   }
   await page.locator('#custom-radius').fill('34');
-  await expect(page.locator('#custom-radius-value')).toHaveText('34 px');
+  await expect(page.locator('#custom-radius-value')).toHaveText('Округлая');
   expect(await page.locator('body').evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(20, 27, 40)');
   expect(await page.locator('.settings-card').first().evaluate(e => getComputedStyle(e).backgroundColor)).toBe('rgb(34, 46, 66)');
   await expect(page.locator('#add-button')).toHaveCSS('background-color', 'rgb(143, 199, 232)');
@@ -463,15 +468,15 @@ test('manual buffering and interface preferences persist and reset without touch
   await seed(page, titles); await open(page);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.locator('input[name="theme"][value="cream"]').check();
-  await page.locator('input[name="profile"][value="manual"]').check();
-  await expect(page.locator('#advanced-settings')).toHaveAttribute('open', '');
+  await chooseProfile(page, 'manual');
+  await expect(page.locator('#advanced-settings')).toBeVisible();
   for (const [selector, value] of [['#manual-buffer', '45'], ['#manual-back-buffer', '10'], ['#manual-memory', '64']]) { await page.locator(selector).fill(value); await page.locator(selector).blur(); }
   await page.locator('#manual-cards').selectOption('12');
   await page.locator('#compact-setting').check(); await page.locator('#hero-setting').uncheck();
   await page.locator('#text-size').fill('120');
   await page.reload();
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await expect(page.locator('#manual-buffer')).toHaveValue('45'); await expect(page.locator('#manual-memory')).toHaveValue('64');
+  await detailedSettings(page); await expect(page.locator('#manual-buffer')).toHaveValue('45'); await expect(page.locator('#manual-memory')).toHaveValue('64');
   await expect(page.locator('#text-size')).toHaveValue('120');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await expect(page.locator('.anime-card')).toHaveCount(12); await expect(page.locator('#hero')).toBeHidden();
@@ -494,7 +499,7 @@ test('manual recovery count and disabled failover affect real failed media reque
   await seed(page, [anime([source('bad'), source('backup', 'AniLibria')])]);
   await page.route('https://media.example.test/**', route => { requests.push(new URL(route.request().url()).pathname); return route.abort('failed'); });
   await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('#advanced-settings > summary').click();
+  await detailedSettings(page);
   await page.locator('#recovery-attempts').fill('3'); await page.locator('#recovery-attempts').blur();
   await page.locator('#auto-switch').uncheck();
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
@@ -508,7 +513,7 @@ test('voice selection, live volume/speed and disabled shortcuts work in the play
   await seed(page, [anime([source('dub'), source('lib', 'AniLibria')])]);
   await page.route('https://media.example.test/**', route => { requests.push(new URL(route.request().url()).pathname); return fulfillVideo(route); });
   await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.locator('#advanced-settings > summary').click(); await page.locator('#voice-priority').selectOption('anilibria');
+  await detailedSettings(page); await page.locator('#voice-priority').selectOption('anilibria');
   await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
   await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click();
   await expect(page.locator('#playback-status')).toContainText('AniLibria · 1080p · воспроизведение'); expect(requests).not.toContain('/dub.webm');
@@ -535,7 +540,7 @@ test('configured load timeout recovers from a media request that never supplies 
   });
   try {
     await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-    await page.locator('#advanced-settings > summary').click();
+    await detailedSettings(page);
     await page.locator('#recovery-attempts').fill('1'); await page.locator('#recovery-attempts').blur();
     await page.locator('#recovery-timeout').fill('5'); await page.locator('#recovery-timeout').blur();
     await page.getByRole('button', { name: 'Библиотека', exact: true }).click();
@@ -594,6 +599,7 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   await page.setViewportSize({ width: 1400, height: 1700 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
+  page.on('console', message => { if (message.type() === 'error' && /width or height is 0|postMessage|removeChild/.test(message.text())) errors.push(message.text()); });
   await open(page); await serveVideo(page);
   await page.getByRole('button', { name: 'Добавить аниме', exact: true }).click();
   await page.locator('#add-form [name=title]').fill('Вечерний просмотр');
@@ -630,9 +636,12 @@ test('ASS/SSA renderer runs real WASM and local studio files persist without res
   }
   await closePlayerSettings(page);
   expect(errors).toEqual([]);
+  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
   await page.getByRole('button', { name: 'Закрыть плеер', exact: true }).click();
   await expect(page.locator('#video-host canvas')).toHaveCount(0);
   await expect(page.locator('video')).toHaveCount(0);
+  // The library's delayed resize callback must be harmless after disposal.
+  await page.waitForTimeout(160);
   expect(errors).toEqual([]);
   await page.reload();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kadr.library.v1')).titles[0].episodes[0].subtitles[0].content)).toContain('У каждого переводчика — свои слова.');
@@ -861,11 +870,11 @@ test('100, 125, 150 and 200 percent display-scale emulation keeps navigation, se
       for (const view of ['Избранное','История','Источники','Настройки']) { await page.getByRole('button',{name:view,exact:true}).click(); await fits(); }
       for (const theme of ['night','oled','nord','sakura','cream','custom']) { await page.locator(`input[name="theme"][value="${theme}"]`).check(); await fits(); }
       await page.locator('input[name="theme"][value="night"]').check();
-      await page.locator('.settings-jumps [data-settings-jump="advanced-settings"]').click();
-      await expect(page.locator('#advanced-settings')).toHaveAttribute('open',''); await expect(page.locator('#advanced-settings')).toBeFocused();
+      await detailedSettings(page);
+      await expect(page.locator('#advanced-settings')).toBeVisible();
       await fits();
-      await page.locator('input[name="profile"][value="manual"]').check(); await fits();
-      await page.locator('.settings-jumps [data-settings-jump="appearance-settings"]').click();
+      await chooseProfile(page, 'manual'); await fits();
+      await page.locator('#settings-basic-tab').click();
       await page.screenshot({path:`test-results/scale-${Math.round(scale*100)}-settings.png`});
       await page.getByRole('button',{name:'Добавить аниме',exact:true}).click();
       const dialog=await page.locator('#add-dialog').boundingBox();
@@ -951,4 +960,86 @@ test('failed personal-note saves keep the draft visible and can be retried', asy
   await expect(page.locator('.character-note-status')).toHaveText('Сохранено');
   await page.reload(); await page.getByRole('button', { name: 'Смотреть: Проверка плеера', exact: true }).click(); await page.locator('#cast-panel > summary').click();
   await expect(page.locator('.character-note')).toHaveValue('Не потерять эту заметку');
+});
+
+test('simple settings have two tabs, a real right scrollbar, stable navigation and local rounded typography', async ({ page }) => {
+  await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.locator('#settings-basic-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#settings-detailed')).toBeHidden();
+  expect(await page.locator('#settings-basic').innerText()).not.toMatch(/буфер|МиБ|\bpx\b/iu);
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.fonts.check('16px "Yoru Nunito"'))).toBe(true);
+  await expect(page.locator('body')).toHaveCSS('font-family', /Yoru Nunito/);
+  const box = await page.getByRole('button', { name: 'Настройки', exact: true }).boundingBox();
+  expect(box.y).toBeGreaterThan(page.viewportSize().height - 100);
+  await page.locator('main').hover(); await page.mouse.wheel(0, 900);
+  await expect.poll(() => page.locator('main').evaluate(e => e.scrollTop)).toBeGreaterThan(100);
+  expect(await page.evaluate(() => document.documentElement.scrollTop)).toBe(0);
+  expect((await page.getByRole('button', { name: 'Настройки', exact: true }).boundingBox()).y).toBe(box.y);
+  await page.locator('main').evaluate(e => { e.scrollTop = 0; });
+  const card = await page.locator('#performance-settings').boundingBox(); const heading = await page.locator('#performance-title').boundingBox();
+  expect(heading.y).toBeGreaterThan(card.y + 12); expect(heading.y + heading.height).toBeLessThan(card.y + card.height);
+  await page.screenshot({ path: 'test-results/settings-simple.png' });
+  await page.locator('#settings-basic-tab').focus(); await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#settings-detailed')).toBeVisible(); await expect(page.locator('#settings-advanced-tab')).toBeFocused();
+  await page.keyboard.press('Home'); await expect(page.locator('#settings-basic')).toBeVisible();
+});
+
+test('roundness preview works on hover and keyboard and persists without pixel jargon or excessive writes', async ({ page }) => {
+  await open(page); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.locator('input[name="theme"][value="custom"]').check();
+  await page.locator('#custom-radius').hover();
+  await expect(page.locator('#radius-preview-toggle')).toBeVisible(); await page.locator('#radius-preview-toggle').click();
+  await expect(page.locator('#radius-preview')).toBeVisible();
+  await page.locator('#custom-radius').focus(); await page.keyboard.press('Home');
+  await expect(page.locator('#custom-radius-value')).toHaveText('Сдержанная');
+  await page.keyboard.press('End'); await expect(page.locator('#custom-radius-value')).toHaveText('Округлая');
+  await expect(page.locator('.radius-sample-card')).toHaveCSS('border-radius', '36px');
+  await page.locator('#radius-preview').scrollIntoViewIfNeeded(); await page.screenshot({ path: 'test-results/settings-radius-preview.png' });
+  await page.locator('#custom-radius').blur();
+  await page.evaluate(() => {
+    window.preferenceWrites = 0; const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) { if (key === 'kadr.preferences.v1') window.preferenceWrites++; return original.call(this, key, value); };
+    const slider = document.querySelector('#custom-radius');
+    for (let i = 12; i <= 36; i++) { slider.value = String(i); slider.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  expect(await page.evaluate(() => window.preferenceWrites)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.preferenceWrites)).toBe(1);
+  await page.reload(); await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.locator('#custom-radius')).toHaveValue('36');
+});
+
+test('repeated mode changes preserve a 1080-only video, its pause and volume while economy removes decorative work', async ({ page }) => {
+  const errors = []; const requests = []; page.on('pageerror', e => errors.push(e.message));
+  const titles = Array.from({length: 40}, (_, i) => ({...anime([source('first')]), id: `stress-${i}`, title: i === 39 ? 'Проверка плеера' : `История ${i}`}));
+  await seed(page, titles); await page.route('https://media.example.test/**', route => { requests.push(route.request().url()); return fulfillVideo(route); });
+  await open(page); await page.getByRole('button', {name:'Смотреть: Проверка плеера',exact:true}).click();
+  await expect(page.locator('#playback-status')).toContainText('воспроизведение');
+  await page.locator('video').evaluate(v => {v.pause(); v.volume=0.31; v.dataset.survivor='yes';});
+  await page.getByRole('button', {name:'Настройки',exact:true}).click();
+  const requestCount=requests.length;
+  await expect(page.locator('.anime-card')).toHaveCount(0);
+  for(let i=0;i<24;i++) await page.locator('#performance-level').fill(String(i%3));
+  await page.locator('#performance-level').fill('0');
+  await expect(page.locator('video')).toHaveAttribute('data-survivor','yes'); await expect(page.locator('video')).toHaveJSProperty('paused',true);
+  await expect(page.locator('video')).toHaveJSProperty('volume',0.31); await expect(page.locator('#quality')).toHaveValue('1080');
+  expect(requests.length).toBe(requestCount);
+  await expect(page.locator('body')).toHaveClass(/economy-mode/);
+  expect(await page.evaluate(()=>document.getAnimations().length)).toBe(0);
+  await page.getByRole('button', {name:'Библиотека',exact:true}).click();
+  await expect(page.locator('#hero')).toBeHidden(); await expect(page.locator('#hero-posters img')).toHaveCount(0); await expect(page.locator('.anime-card')).toHaveCount(12);
+  await page.locator('.artwork').first().hover(); await expect(page.locator('.artwork').first()).toHaveCSS('transform','none');
+  await page.getByRole('button', {name:'Закрыть плеер',exact:true}).click();
+  await page.getByRole('button', {name:'Смотреть: Проверка плеера',exact:true}).click();
+  await expect(page.locator('#playback-status')).toContainText('1080p · воспроизведение'); expect(errors).toEqual([]);
+});
+
+test('roundness storage failure keeps the live interface usable and reports the unsaved state', async ({ page }) => {
+  const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+  await open(page); await page.getByRole('button',{name:'Настройки',exact:true}).click(); await page.locator('input[name="theme"][value="custom"]').check();
+  await page.evaluate(()=>{const original=Storage.prototype.setItem; Storage.prototype.setItem=function(key,value){if(key==='kadr.preferences.v1')throw new DOMException('Full','QuotaExceededError');return original.call(this,key,value);};});
+  await page.locator('#custom-radius').fill('32'); await expect(page.locator('#settings-save-status')).toContainText('Не удалось сохранить');
+  await expect(page.locator('#custom-radius-value')).toHaveText('Округлая');
+  await page.locator('#settings-advanced-tab').click(); await expect(page.locator('#advanced-settings')).toBeVisible(); expect(errors).toEqual([]);
 });
