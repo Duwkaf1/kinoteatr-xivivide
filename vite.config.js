@@ -6,6 +6,7 @@ function catalogGateway() {
   const middleware = (server) => { server.middlewares.use('/__yoru/catalog', async (request, response) => {
     if (request.method !== 'GET') { response.writeHead(405); response.end(); return; }
     const url = new URL(request.url, 'http://localhost'); const args = Object.fromEntries(url.searchParams);
+    if (args.genres !== undefined) { try { args.genres = JSON.parse(args.genres); } catch { args.genres = null; } }
     if (args.page !== undefined) args.page = Number(args.page);
     if (args.releaseId !== undefined) args.releaseId = Number(args.releaseId);
     const controller = new AbortController(); response.on('close', () => { if (!response.writableEnded) controller.abort(); });

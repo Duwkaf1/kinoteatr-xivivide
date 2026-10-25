@@ -47,3 +47,33 @@ test('a mismatched release identity cannot start the wrong anime',async()=>{
  const api=createAnimeCatalog({transport:async()=>release});
  await assert.rejects(api.release(release.id+1),/другую карточку/);
 });
+
+test('genre and age filters are validated and sent to the provider, including combined genres',()=>{
+ const url=new URL(catalogRequestURL({kind:'list',query:'',page:1,sort:'newest',genres:[27,15],age:'R16_PLUS'}));
+ assert.equal(url.searchParams.get('f[genres]'),'15,27');assert.equal(url.searchParams.get('f[age_ratings]'),'R16_PLUS');
+ for(const args of [{genres:[15,15]},{genres:['15']},{genres:[0]},{genres:[1,2,3,4,5,6,7]},{age:'__proto__'}])assert.throws(()=>catalogRequestURL({kind:'list',query:'',page:1,sort:'popular',...args}));
+ assert.equal(new URL(catalogRequestURL({kind:'genres'})).pathname,'/api/v1/anime/genres');
+});
+test('filtered catalog cache never mixes a previous age, genre or search with the new criteria',async()=>{
+ const calls=[];const api=createAnimeCatalog({transport:async data=>{calls.push(data);return data.kind==='genres'?[{id:27,name:'Приключения'}]:{data:[{...release,age_rating:{value:'R12_PLUS'},genres:[{id:27,name:'Приключения'}]}],meta:{pagination:{total:1,total_pages:1}}};}});
+ assert.equal((await api.genres())[0].id,27);
+ await api.list({genres:[27],age:'R12_PLUS'});await api.list({genres:[27],age:'R16_PLUS'});await api.list({genres:[],age:'R16_PLUS'});await api.list({genres:[27],age:'R12_PLUS'});
+ assert.equal(calls.length,4);const item=(await api.list({genres:[27],age:'R12_PLUS'})).items[0];assert.equal(item.ageLabel,'12+');assert.deepEqual(item.genreIds,[27]);
+});
+
+test('expanded catalog is a distinct fixed Yummyani API destination with provider-specific age filters',async()=>{
+ const {yummyItem}=await import('../src/yummy-catalog.js');const fixture=JSON.parse(readFileSync(new URL('./fixtures/catalog/yummy.json',import.meta.url)));
+ const args={provider:'yummyani',kind:'list',query:'Фрирен',page:2,sort:'newest',genres:[15,32],age:'Y3'};const url=new URL(catalogRequestURL(args));
+ assert.equal(url.origin,'https://old.yummyani.me');assert.equal(url.pathname,'/api/anime');assert.equal(url.searchParams.get('offset'),'24');assert.equal(url.searchParams.get('genres'),'15,32');assert.equal(url.searchParams.get('min_age'),'3');assert.equal(url.searchParams.get('q'),'Фрирен');
+ assert.equal(new URL(catalogRequestURL({...args,kind:'random'})).searchParams.get('sort'),'random');
+ assert.throws(()=>catalogRequestURL({...args,provider:'evil'}));assert.throws(()=>catalogRequestURL({...args,age:'R16_PLUS'}));assert.throws(()=>catalogRequestURL({...args,provider:'anilibria'}));
+ const item=yummyItem(fixture);assert.equal(item.provider,'yummyani');assert.equal(item.ageLabel,'13+');assert.match(item.websiteURL,/^https:\/\/old\.yummyani\.me\/catalog\/item\//);assert.equal(yummyItem({...fixture,anime_url:'../../evil'}),null);
+ const api=createAnimeCatalog({transport:async data=>data.kind==='release'?{response:fixture}:{response:[fixture]}});assert.equal((await api.list({provider:'yummyani'})).items[0].id,fixture.anime_id);assert.equal((await api.release(fixture.anime_id,{provider:'yummyani'})).item.id,fixture.anime_id);assert.equal((await api.random({...args,genres:[],age:''})).id,fixture.anime_id);
+});
+
+test('a random site response that violates the selected genres or age cannot open an unrelated anime',async()=>{
+ const fixture=JSON.parse(readFileSync(new URL('./fixtures/catalog/yummy.json',import.meta.url)));const api=createAnimeCatalog({transport:async()=>({response:[fixture]})});
+ assert.equal(await api.random({query:'',sort:'popular',genres:[9999],age:'Y3'}),null);
+ assert.equal(await api.random({query:'',sort:'popular',genres:[15],age:'Y4'}),null);
+ assert.equal((await api.list({provider:'yummyani',genres:[9999]})).items.length,0);
+});

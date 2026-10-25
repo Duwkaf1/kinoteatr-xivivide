@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-const releases=JSON.parse(readFileSync(new URL('../test/fixtures/catalog/releases.json',import.meta.url)));
+const releases=JSON.parse(readFileSync(new URL('../test/fixtures/catalog/releases.json',import.meta.url))).map((r,i)=>({...r,age_rating:{value:i%2?'R16_PLUS':'R12_PLUS',label:i%2?'16+':'12+'},genres:i%2?[{id:15,name:'Боевые искусства'},{id:27,name:'Приключения'}]:[{id:30,name:'Фэнтези'},{id:27,name:'Приключения'}]}));
 const posters=JSON.parse(readFileSync(new URL('../test/fixtures/posters/catalog.json',import.meta.url)));
 export { releases };
 export async function serveCatalog(page,{delay=0,fail=false}={}){
@@ -8,11 +8,12 @@ export async function serveCatalog(page,{delay=0,fail=false}={}){
     const url=new URL(route.request().url());requests.push(url);
     if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
     if(fail)return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Каталог сейчас не отвечает.'})});
+    if(url.searchParams.get('kind')==='genres')return route.fulfill({contentType:'application/json',body:JSON.stringify([{id:15,name:'Боевые искусства'},{id:27,name:'Приключения'},{id:30,name:'Фэнтези'}])});
     if(url.searchParams.get('kind')==='release'){
       const item=releases.find(r=>r.id===Number(url.searchParams.get('releaseId')));
       return route.fulfill({contentType:'application/json',body:JSON.stringify(item||{})});
     }
-    const search=(url.searchParams.get('query')||'').toLocaleLowerCase('ru');const data=releases.filter(r=>[r.name.main,r.name.english].some(name=>name.toLocaleLowerCase('ru').includes(search)));
+    const search=(url.searchParams.get('query')||'').toLocaleLowerCase('ru');const genres=JSON.parse(url.searchParams.get('genres')||'[]');const age=url.searchParams.get('age');const data=releases.filter(r=>[r.name.main,r.name.english].some(name=>name.toLocaleLowerCase('ru').includes(search))&&genres.every(id=>r.genres.some(g=>g.id===id))&&(!age||r.age_rating.value===age));
     return route.fulfill({contentType:'application/json',body:JSON.stringify({data,meta:{pagination:{total:data.length,total_pages:1}}})});
   });
   for(const item of posters)await page.route(item.posterUrl,route=>route.fulfill({contentType:'image/webp',body:readFileSync(new URL(`../test/fixtures/posters/${item.file}`,import.meta.url))}));

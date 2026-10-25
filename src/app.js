@@ -285,6 +285,7 @@ function changeView(next, focus = true) {
   $('#settings-view').hidden = view !== 'settings';
   $('.page-heading').hidden = view === 'watch';
   $('#return-player').hidden = !active || view === 'watch';
+  $('#browse-button').hidden = view === 'catalog';
   if (active?.title.catalog) $('#player-section').hidden = view !== 'watch';
   $('#hero').hidden = view !== 'library' || !preferences.interface.showHero || preferences.profile === 'economy';
   $('main').scrollTop = 0;

@@ -1,13 +1,15 @@
 import { boundedText } from './subtitles.js';
 import { catalogRelease } from './catalog.js';
 import { validateLibrary } from './core.js';
+import { yummyItem, YUMMY_GENRES } from './yummy-catalog.js';
+import { CATALOG_AGES, catalogFilters } from './catalog-provider.js';
 
 export const CATALOG_SOURCE_PREFIX = 'catalog:anilibria:';
 export function catalogItem(raw) {
   if (!Number.isSafeInteger(raw?.id) || raw.id < 1 || typeof raw.name?.main !== 'string' || !raw.name.main.trim()) return null;
   const poster = catalogRelease(raw);
   const plain = value => typeof value === 'string' ? value.replace(/<br\s*\/?\s*>/gi, '\n').replace(/<[^>]*>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').slice(0, 6000) : '';
-  return { id: raw.id, title: raw.name.main.trim().slice(0,160), english: plain(raw.name.english).slice(0,160), posterUrl: poster?.posterUrl || '', year: Number.isInteger(raw.year) ? raw.year : null, type: plain(raw.type?.description).slice(0,30), description: plain(raw.description), genres: Array.isArray(raw.genres) ? raw.genres.slice(0,6).map(g=>plain(g.name)).filter(Boolean) : [], episodes: Number.isFinite(raw.episodes_total) ? raw.episodes_total : null, rating: Number.isFinite(raw.shikimori?.rating) ? raw.shikimori.rating : null, blocked: raw.is_blocked_by_geo === true || raw.is_blocked_by_copyrights === true, ongoing: raw.is_ongoing === true };
+  return { provider:'anilibria',id: raw.id, title: raw.name.main.trim().slice(0,160), english: plain(raw.name.english).slice(0,160), posterUrl: poster?.posterUrl || '', year: Number.isInteger(raw.year) ? raw.year : null, type: plain(raw.type?.description).slice(0,30), description: plain(raw.description), genres: Array.isArray(raw.genres) ? raw.genres.slice(0,6).map(g=>plain(g.name)).filter(Boolean) : [], age: Object.hasOwn(CATALOG_AGES,raw.age_rating?.value) ? raw.age_rating.value : '', ageLabel: CATALOG_AGES[raw.age_rating?.value] || '', genreIds: Array.isArray(raw.genres) ? raw.genres.map(g=>g.id).filter(Number.isSafeInteger) : [], episodes: Number.isFinite(raw.episodes_total) ? raw.episodes_total : null, rating: Number.isFinite(raw.shikimori?.rating) ? raw.shikimori.rating : null, blocked: raw.is_blocked_by_geo === true || raw.is_blocked_by_copyrights === true, ongoing: raw.is_ongoing === true };
 }
 export function catalogTitle(raw) {
   const item = catalogItem(raw); if (!item) throw new Error('Не удалось прочитать карточку аниме.');
@@ -51,7 +53,7 @@ export function createAnimeCatalog({ transport, now = Date.now } = {}) {
       finally{signal?.removeEventListener('abort',cancel);}
     }
     const url=new URL('/__yoru/catalog',location.href);
-    for(const [key,value]of Object.entries(data))url.searchParams.set(key,String(value));
+    for(const [key,value]of Object.entries(data))url.searchParams.set(key,Array.isArray(value)?JSON.stringify(value):String(value));
     const response=await fetch(url,{signal,credentials:'omit'});
     if(!response.ok)throw new Error('Каталог сейчас не отвечает. Попробуй ещё раз немного позже.');
     const body=JSON.parse(await boundedText(response));if(body?.error)throw new Error(body.error);return body;
@@ -66,11 +68,19 @@ export function createAnimeCatalog({ transport, now = Date.now } = {}) {
     return result;
   }
   return {
-    list({query='',page=1,sort='popular',...options}={}){return load(`list:${query.toLocaleLowerCase('ru')}:${page}:${sort}`,{kind:'list',query,page,sort},raw=>{
+    genres({provider='anilibria',...options}={}){if(provider==='yummyani')return Promise.resolve(YUMMY_GENRES);return load('genres',{kind:'genres'},raw=>{
+      if(!Array.isArray(raw))throw new Error('Не удалось загрузить жанры.');
+      return raw.slice(0,100).filter(g=>Number.isSafeInteger(g?.id)&&g.id>0&&typeof g.name==='string').map(g=>({id:g.id,name:g.name.slice(0,60)})).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+    },options);},
+    list({query='',page=1,sort='popular',genres=[],age='',provider='anilibria',...options}={}){
+      const filters=catalogFilters({genres,age});
+      return load(`list:${provider}:${query.toLocaleLowerCase('ru')}:${page}:${sort}:${filters.genres.join(',')}:${age}`,{kind:'list',provider,query,page,sort,...filters},raw=>{
+      if(provider==='yummyani'){if(!Array.isArray(raw?.response)||raw.warnings?.length)throw new Error('Не удалось применить условия поиска Yummyani.');return {items:raw.response.slice(0,24).map(yummyItem).filter(item=>item&&filters.genres.every(id=>item.genreIds.includes(id))&&(!age||item.age===age)),total:null,hasMore:raw.response.length>=24};}
       if(!Array.isArray(raw?.data))throw new Error('Каталог вернул неизвестный ответ. Попробуй ещё раз.');
       const pagination=raw.meta?.pagination;
       return {items:raw.data.slice(0,24).map(catalogItem).filter(Boolean),total:Number.isFinite(pagination?.total)?pagination.total:null,hasMore:Number.isInteger(pagination?.total_pages)&&page<pagination.total_pages};
     },options);},
-    release(releaseId,options={}){return load(`release:${releaseId}`,{kind:'release',releaseId},raw=>{const item=catalogItem(raw);if(!item||item.id!==releaseId)throw new Error('Каталог вернул другую карточку. Попробуй открыть аниме ещё раз.');return {item,raw};},options);},
+    random(filters,options={}){return load(`random:${Math.random()}`,{...filters,kind:'random',provider:'yummyani',page:1},raw=>{if(!Array.isArray(raw?.response)||raw.warnings?.length)throw new Error('Не удалось подобрать аниме.');return raw.response.map(yummyItem).find(item=>item&&filters.genres.every(id=>item.genreIds.includes(id))&&(!filters.age||item.age===filters.age))||null;},{...options,fresh:true});},
+    release(releaseId,{provider='anilibria',...options}={}){return load(`release:${provider}:${releaseId}`,{kind:'release',provider,releaseId},raw=>{const item=provider==='yummyani'?yummyItem(raw.response):catalogItem(raw);if(!item||item.id!==releaseId)throw new Error('Каталог вернул другую карточку. Попробуй открыть аниме ещё раз.');return {item,raw};},options);},
   };
 }

@@ -87,3 +87,33 @@ body[data-profile="quality"] .catalog-card-open:hover img { transform: scale(1.0
 .less-motion .catalog-skeleton { animation: none !important; }
 .hero-moon path { fill: var(--accent); stroke: none; }.hero-moon circle { opacity: .45; }
 @media (max-width: 440px) { .performance-current { min-height: calc(160px * var(--text-scale)); } }
+
+/* Discovery stays compact; filters and random selection share the same criteria. */
+.catalog-discovery-actions,.catalog-filter-actions { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
+.catalog-discovery-actions { justify-content:space-between;margin:-4px 0 18px; }
+.catalog-discovery-actions button { min-height:40px;font-size:13px; }
+#catalog-filter-badge { display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:11px; }
+.catalog-reset { border:0;background:transparent;color:var(--muted);padding:8px 4px; }
+.catalog-reset:hover { color:var(--text); }
+.catalog-filters { padding:24px;border:1px solid var(--line);border-radius:20px;background:var(--surface);margin-bottom:18px; }
+.catalog-filter-heading { display:flex;gap:20px;justify-content:space-between;align-items:start;margin-bottom:18px; }
+.catalog-filter-heading h2 { font-size:18px; }.catalog-filter-heading p { font-size:12px;max-width:480px;margin:6px 0 0; }
+.catalog-age-label { display:grid;gap:6px;font-size:12px;color:var(--muted);min-width:150px; }.catalog-age-label select { min-height:40px; }
+.catalog-genres { display:flex;gap:8px;flex-wrap:wrap; }
+.genre-chip { padding:7px 12px;min-height:36px;background:var(--surface-soft);color:var(--muted);border:1px solid var(--line);border-radius:99px;font-size:12px;transition:background 150ms,color 150ms,border-color 150ms; }
+.genre-chip:hover { color:var(--text);border-color:var(--muted); }.genre-chip[aria-pressed="true"] { background:var(--accent);color:var(--accent-ink);border-color:var(--accent); }
+#catalog-genres-state { margin:12px 0 0;font-size:12px; }#catalog-genres-state:empty { display:none; }
+.catalog-scope { font-size:11px;margin:0 0 18px;line-height:1.6; }
+.catalog-age { position:absolute;top:10px;right:10px;background:#121519e6;color:#fff;padding:3px 7px;border-radius:6px;font-size:11px; }
+.catalog-card-genres { font-size:11px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+.catalog-card { transition:opacity 180ms ease,transform 180ms ease; }.catalog-card.search-exiting { opacity:0;transform:translateY(5px) scale(.97);pointer-events:none; }
+:root[data-theme="custom"] .catalog-filters { --text:var(--custom-safe-panel-text);--muted:var(--custom-safe-panel-muted);--accent:var(--custom-safe-panel-accent);--accent-ink:var(--custom-safe-panel-accent-ink);color:var(--text); }
+:root[data-theme="custom"] .genre-chip:not([aria-pressed="true"]) { color:var(--custom-safe-control-text); }
+body:not([data-profile="quality"]) .catalog-card,.less-motion .catalog-card { transition:none; }
+@media(max-width:600px) { .catalog-filter-heading { flex-direction:column;gap:14px; }.catalog-age-label { width:100%; }.catalog-filters { padding:18px; }.catalog-discovery-actions { gap:10px; }.catalog-discovery-actions button { font-size:12px; }.catalog-filter-actions { gap:8px; } }
+@media(prefers-reduced-motion:reduce) { .catalog-card,.genre-chip { transition:none; } }
+.catalog-provider-row { margin:0 0 16px; }.catalog-provider-row label { display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted); }.catalog-provider-row select { width:auto;min-width:220px;max-width:100%;min-height:38px;font-size:12px;padding:7px 28px 7px 12px; }
+#catalog-genre-search { max-width:320px;margin:0 0 14px;min-height:38px;font-size:12px; }.catalog-genres { max-height:240px;overflow-y:auto;padding:2px; }
+@media(max-width:540px) { .catalog-provider-row label { align-items:start;flex-direction:column;gap:6px; }.catalog-provider-row select { width:100%;min-width:0; } }
+.release-actions.website-actions { display:flex;justify-content:flex-start; }.release-actions.website-actions .primary { width:auto;min-width:min(260px,100%);max-width:100%;white-space:nowrap; }
+@media(max-width:540px) { .release-actions.website-actions .primary { width:100%;min-width:0;font-size:12px; } }

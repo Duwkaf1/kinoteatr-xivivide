@@ -3,7 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 
 export async function smokeCatalog({ application, page, root }) {
-  const releases=JSON.parse(await readFile(path.join(root,'test/fixtures/catalog/releases.json'),'utf8'));
+  const releases=JSON.parse(await readFile(path.join(root,'test/fixtures/catalog/releases.json'),'utf8')).map(r=>({...r,age_rating:{value:'R12_PLUS',label:'12+'},genres:[{id:27,name:'Приключения'}]}));
   const release=releases.find(item=>item.id===9542);const posterCatalog=JSON.parse(await readFile(path.join(root,'test/fixtures/posters/catalog.json'),'utf8'));
   for(const poster of posterCatalog)await page.route(poster.posterUrl,async route=>route.fulfill({contentType:'image/webp',body:await readFile(path.join(root,'test/fixtures/posters',poster.file))}));
   await application.evaluate(({net},release)=>{
@@ -12,7 +12,7 @@ export async function smokeCatalog({ application, page, root }) {
       if(!/^https:\/\/(anilibria|aniliberty)\.top\/api\/v1\/anime\//.test(url))return previous(url,options);
       globalThis.__catalogRequests.push(url);
       if(options.credentials!=='omit'||options.redirect!=='error')throw new Error('Unsafe catalog transport options');
-      const parsed=new URL(url);const body=parsed.pathname.includes('/releases/')?release:{data:[release],meta:{pagination:{total:1,total_pages:1}}};
+      const parsed=new URL(url);const body=parsed.pathname.endsWith('/genres')?[{id:27,name:'Приключения'}]:parsed.pathname.includes('/releases/')?release:{data:[release],meta:{pagination:{total:1,total_pages:1}}};
       return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}});
     };
   },release);
@@ -24,6 +24,7 @@ export async function smokeCatalog({ application, page, root }) {
   });
   await page.reload();await page.waitForSelector('.catalog-card');
   assert.equal(await page.locator('[data-view=sources]').count(),0);assert.equal(await page.locator('header #add-button').count(),0);
+  assert.equal(await page.locator('#browse-button').isVisible(),false);await page.locator('#catalog-filter-toggle').click();await page.getByRole('button',{name:'Приключения',exact:true}).click();await page.locator('#catalog-age').selectOption('R12_PLUS');await page.locator('#catalog-random').click();await page.waitForFunction(()=>!document.querySelector('#catalog-play').disabled);assert.ok((await page.locator('#release-meta').textContent()).includes('12+'));await page.locator('#close-release').click();await page.locator('#catalog-reset').click();
   await page.locator('#catalog-search').fill('Фрирен');await page.getByRole('button',{name:`Открыть: ${release.name.main}`,exact:true}).click();
   await page.waitForFunction(()=>!document.querySelector('#catalog-play').disabled);await page.locator('#catalog-episode').selectOption('episode-9542-2');await page.locator('#catalog-play').click();
   await page.waitForFunction(()=>{const v=document.querySelector('video');return v?.videoHeight===1080&&v.currentTime>.1&&v.webkitAudioDecodedByteCount>0;},undefined,{timeout:15000});
@@ -35,5 +36,10 @@ export async function smokeCatalog({ application, page, root }) {
   assert.ok((await page.locator('#playing-title').textContent()).includes('Серия 2'));
   const requests=await application.evaluate(()=>globalThis.__catalogRequests);assert.ok(requests.filter(url=>url.includes('/releases/9542')).length>=2);
   await page.getByRole('button',{name:'Закрыть плеер',exact:true}).click();
+  const yummy=JSON.parse(await readFile(path.join(root,'test/fixtures/catalog/yummy.json'),'utf8'));
+  await application.evaluate(({net},fixture)=>{const previous=net.fetch;net.fetch=(url,options)=>String(url).startsWith('https://old.yummyani.me/api/')?Promise.resolve(new Response(JSON.stringify({response:/\/api\/anime\/\d+$/.test(new URL(url).pathname)?fixture:[fixture]}),{headers:{'Content-Type':'application/json'}})):previous(url,options);},yummy);
+  const websiteURL='https://old.yummyani.me/catalog/item/'+yummy.anime_url;await page.context().route(websiteURL,route=>route.fulfill({contentType:'text/html',body:'<!doctype html><title>Yummyani isolated catalog handoff fixture</title><h1>Yummyani</h1>'}));
+  await page.locator('#catalog-provider').selectOption('yummyani');await page.locator('.catalog-card-open').click();await page.waitForFunction(()=>!document.querySelector('#catalog-play').disabled);const reused=application.windows().find(window=>window.url().startsWith('https://old.yummyani.me/'));const websitePromise=reused?Promise.resolve(reused):application.waitForEvent('window');await page.locator('#catalog-play').click();const website=await websitePromise;await website.waitForURL(websiteURL);await website.waitForLoadState('domcontentloaded');assert.equal(await website.evaluate(()=>typeof window.kadr),'undefined');assert.ok(website.url().startsWith(websiteURL));await website.close();await page.context().unroute(websiteURL);
+  console.log('PASS: native filter/random IPC and expanded Yummyani catalog open the exact anime in an isolated application window');
   console.log('PASS: native catalog search, typed IPC, automatic posters/episodes/HLS audio-video playback, expiring URL refresh and resume without link entry');
 }

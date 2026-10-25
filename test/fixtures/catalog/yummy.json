@@ -1,0 +1,104 @@
+{
+  "anime_id": 10661,
+  "anime_url": "provozhayushchaya-posledniy-put-friren",
+  "title": "Провожающая в последний путь Фрирен",
+  "other_titles": [
+    "Frieren at the Funeral",
+    "Frieren: Beyond Journey's End",
+    "Sousou no Frieren",
+    "Проводжаюча в останню путь Фрірен",
+    "葬送のフリーレン"
+  ],
+  "description": "Архивная карточка Yummyani для проверки интерфейса; видеоплееры сайта в браузерном тесте не загружаются.",
+  "year": 2023,
+  "poster": {
+    "fullsize": "//static.yani.tv/posters/full/1636668991.jpg",
+    "big": "//static.yani.tv/posters/big/1636668991.webp",
+    "small": "//static.yani.tv/posters/small/1636668991.webp",
+    "medium": "//static.yani.tv/posters/medium/1636668991.webp",
+    "huge": "//static.yani.tv/posters/huge/1636668991.avif",
+    "mega": "//static.yani.tv/posters/mega/1636668991.avif"
+  },
+  "type": {
+    "name": "Сериал",
+    "value": 1,
+    "shortname": "ТВ",
+    "alias": "tv"
+  },
+  "min_age": {
+    "value": 3,
+    "title_long": "PG-13 (от 13 лет)",
+    "title": "PG-13"
+  },
+  "genres": [
+    {
+      "title": "Сёнэн",
+      "url": "/catalog/category/senen",
+      "id": 8,
+      "alias": "senen"
+    },
+    {
+      "title": "Драма",
+      "url": "/catalog/category/drama",
+      "id": 15,
+      "alias": "drama"
+    },
+    {
+      "title": "Приключения",
+      "url": "/catalog/category/priklyucheniya",
+      "id": 32,
+      "alias": "priklyucheniya"
+    },
+    {
+      "title": "Фэнтези",
+      "url": "/catalog/category/fentezi",
+      "id": 42,
+      "alias": "fentezi"
+    },
+    {
+      "title": "Магия",
+      "url": "/catalog/category/magiya",
+      "id": 51,
+      "alias": "magiya"
+    },
+    {
+      "title": "Целый фэнтези мир",
+      "url": "/catalog/category/celyj-fentezi-mir",
+      "id": 59,
+      "alias": "celyj-fentezi-mir"
+    },
+    {
+      "title": "Эльфы",
+      "url": "/catalog/category/el-fy",
+      "id": 60,
+      "alias": "el-fy"
+    },
+    {
+      "title": "Повседневность",
+      "url": "/catalog/category/povsednevnost",
+      "id": 86,
+      "alias": "povsednevnost"
+    }
+  ],
+  "rating": {
+    "average": 8.98724838293767,
+    "counters": 10979,
+    "kp_rating": 8.7,
+    "shikimori_rating": 8.85940743010768,
+    "anidub_rating": 0,
+    "myanimelist_rating": 9.24,
+    "worldart_rating": 8.8
+  },
+  "episodes": {
+    "count": 28,
+    "aired": 27,
+    "next_date": 1695945600,
+    "prev_date": 0
+  },
+  "anime_status": {
+    "value": 0,
+    "title": "вышел",
+    "alias": "released",
+    "class": ""
+  }
+}

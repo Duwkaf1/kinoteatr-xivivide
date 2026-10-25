@@ -2,13 +2,13 @@ import { CATALOG_HOSTS, catalogRequestURL } from '../src/catalog-provider.js';
 import { boundedText } from '../src/subtitles.js';
 
 // The renderer supplies a typed operation, never a destination URL. Only these
-// two official public API origins are reachable through this bridge.
+// fixed public API origins are reachable through this bridge.
 export async function requestCatalog(data, { fetcher = globalThis.fetch, signal } = {}) {
   catalogRequestURL(data);
   const deadline = AbortSignal.timeout(12000);
   const combined = signal ? AbortSignal.any([signal, deadline]) : deadline;
   let failure;
-  for (const origin of CATALOG_HOSTS) {
+  for (const origin of (data.provider === 'yummyani' ? CATALOG_HOSTS.slice(0,1) : CATALOG_HOSTS)) {
     combined.throwIfAborted();
     try {
       const response = await fetcher(catalogRequestURL(data, origin), { credentials: 'omit', redirect: 'error', signal: combined, headers: { Accept: 'application/json' } });
