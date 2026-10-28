@@ -465,7 +465,7 @@ function startEpisode(title, episode, time, session = {}) {
   $('#next-button').hidden=title.discovery?.media==='movie';$('#episode-picker').hidden=title.discovery?.media==='movie';
   $('#playing-title').textContent = title.discovery?.media==='movie'?title.title:`${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
   $('#quality').value = String(active.quality); $('#watch-audio-mode').value = active.watching.audioMode; $('#retry-button').hidden = true; episodeButtons();
-  for (const option of $('#quality').options) option.disabled = Boolean(title.catalog) && !episode.sources.some(source => source.quality === Number(option.value));
+  for (const option of $('#quality').options) option.disabled = Boolean(title.catalog||title.discovery) && !episode.sources.some(source => source.quality === Number(option.value));
   for (const option of $('#watch-audio-mode').options) option.disabled = !episode.sources.some(source => option.value === 'original' ? source.audioType === 'original' : source.audioType !== 'original' && source.language === 'ru');
   $('#return-player').hidden = view === 'watch';
   Object.defineProperty(state.progress, title.id, { value: { episodeId: episode.id, time, updatedAt: Date.now() }, writable: true, enumerable: true, configurable: true }); persist(true); lastSave = Date.now();
