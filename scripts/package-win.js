@@ -6,7 +6,7 @@ const output = await packager({
   dir: '.', out: 'artifacts', name: 'Yoru', executableName: 'Yoru', platform: 'win32', arch: 'x64',
   electronVersion: '45.0.0', appVersion: version, asar: true, overwrite: true,
   icon: path.resolve('assets/yoru.ico'),
-  win32metadata: { CompanyName: 'Duwkaf1', FileDescription: 'Yoru — личный кинозал для аниме', ProductName: 'Yoru' },
+  win32metadata: { CompanyName: 'Duwkaf1', FileDescription: 'Yoru — кино, сериалы и аниме', ProductName: 'Yoru' },
   download: { cacheRoot: path.resolve('.cache/electron') },
   ignore: [/^\/(test|e2e|test-results|playwright-report|scripts|installer|docs|public|artifacts|\.git|\.cache)(\/|$)/, /^\/assets\/branding(\/|$)/, /^\/(vite\.config|playwright\.config)/],
 });
@@ -24,7 +24,7 @@ for (const item of output) {
   await copyFile('docs/viewing-0.6.md', path.join(item, 'Просмотр-и-субтитры.md'));
   await copyFile('docs/redesign-0.7.md', path.join(item, 'Оформление-и-проверки.md'));
   await copyFile('docs/character-details.md', path.join(item, 'Имена-и-заметки.md'));
-  await copyFile('docs/release-0.8.2.md', path.join(item, 'Проверка-перед-публикацией.md'));
+  await copyFile('docs/cinema-0.9.0.md', path.join(item, 'Проверка-перед-публикацией.md'));
   await copyFile('node_modules/video.js/LICENSE', path.join(item, 'LICENSE-video.js.txt'));
   await copyFile('node_modules/libass-wasm/dist/js/COPYRIGHT', path.join(item, 'LICENSE-libass-wasm.txt'));
   await writeFile(path.join(item, 'ПРОЧИТАЙ.txt'), `\uFEFFYORU ${version}
@@ -32,6 +32,10 @@ for (const item of output) {
 Установщик Yoru-Setup ставит приложение одним файлом на Windows 10/11 x64. Из ZIP без установки нужно распаковать всю папку и запустить Yoru.exe. Сборка не подписана.
 
 Начни с каталога: введи название, выбери жанры и возраст либо нажми «Случайное аниме». AniLibria использует встроенный плеер и сохраняет серию и время. Yummyani открывает выбранное аниме в отдельном окне Yoru; сериями, переводами и прогрессом там управляет сайт.
+
+Во вкладках «Фильмы» и «Сериалы» работает общий каталог Cinemeta. При его отказе используются TVmaze для сериалов или Internet Archive для фильмов со свободной лицензией. Это разные каталоги: смена источника явно обозначается. Для YouTube, Кинопоиска, Rutube и VK Видео открывается поиск названия и выбранной серии в системном браузере. Наличие полной версии, вход, подписку и региональные ограничения определяет сервис; автоматической передачи позиции между такими сайтами нет.
+
+Прямой просмотр Internet Archive появляется только при подтверждённом файле, языке и указанной свободной лицензии. Резервные адреса относятся к тому же файлу и качеству. Сохраняется позиция встроенного просмотра. В настройках можно проверить доступ к публичным страницам сервисов; это не проверка наличия фильма. Проверки новых сервисов из РФ и других стран не подтверждены.
 
 Если постер Yummyani не загрузился, резервная обложка проверяется по точным идентификаторам релиза в AniLibria или MyAnimeList. По одному похожему названию обложки не подставляются; при противоречии идентификаторов остаётся заглушка.
 

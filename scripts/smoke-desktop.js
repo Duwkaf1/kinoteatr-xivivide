@@ -4,6 +4,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {smokeCinema} from './smoke-cinema.js';
 import { smokeCatalog } from './smoke-catalog.js';
 
 // Uses the real main/preload and built file:// renderer; no development server.
@@ -25,7 +26,7 @@ try {
   await page.getByRole('button',{name:'Библиотека',exact:true}).click();
   const manualAdd = async () => { await page.getByRole('button',{name:'Настройки',exact:true}).click(); await page.locator('#settings-advanced-tab').click(); if(!await page.locator('#legacy-data').evaluate(e=>e.open))await page.locator('#legacy-data > summary').click(); await page.locator('#add-button').click(); };
   assert.ok(page.url().startsWith('file:'));
-  assert.equal(await page.title(), 'Yoru — аниме');
+  assert.equal(await page.title(), 'Yoru — кино и аниме');
   assert.equal(await application.evaluate(({ app }) => app.getName()), 'Yoru');
   assert.equal(await page.evaluate(() => typeof window.kadr?.openSource), 'function');
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
@@ -240,6 +241,7 @@ try {
   assert.equal(await sourcePage.evaluate(() => typeof window.kadr), 'undefined');
   assert.equal(await sourcePage.evaluate(() => typeof window.require), 'undefined');
   await smokeCatalog({application,page,root});
+  await smokeCinema({application,page,root});
   assert.deepEqual(errors, []);
   const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   console.log(`PASS: Electron ${version}; file renderer, posters, settings, real WebM, Video.js switching/state, real ASS WASM canvas, AniDB IPC/cache/XML and isolated website/AniDB/source windows`);

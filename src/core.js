@@ -1,3 +1,4 @@
+import {cinemaDiscovery} from './cinema-services.js';
 import { subtitleEntries, seasonEntries, animeId, languageCode, webPlayerEntries, catalogIdentity } from './media-schema.js';
 export const MAX_LIBRARY_TITLES = 500;
 export const EXAMPLE_SITES = Object.freeze([
@@ -32,11 +33,11 @@ export function validateLibrary(data) {
     if (!title || typeof title.id !== 'string' || !title.id || ids.has(title.id)) throw new Error('У каждого аниме должен быть уникальный id.');
     ids.add(title.id);
     if (typeof title.title !== 'string' || !title.title.trim() || title.title.length > 160) throw new Error('Укажи название аниме, не более 160 символов.');
-    const catalog = catalogIdentity(title.catalog);
-    if (!Array.isArray(title.episodes) || !title.episodes.length || title.episodes.length > (catalog ? 2000 : 500)) throw new Error(`Нужны серии: от 1 до ${catalog ? 2000 : 500}.`);
+    const catalog = catalogIdentity(title.catalog);const discovery=cinemaDiscovery(title.discovery);
+    if (!Array.isArray(title.episodes) || !title.episodes.length || title.episodes.length > (catalog||discovery ? 2000 : 500)) throw new Error(`Нужны серии: от 1 до ${catalog||discovery ? 2000 : 500}.`);
     const episodeIds = new Set();
     const poster = {};
-    if (catalog) poster.catalog = catalog;
+    if (catalog) poster.catalog = catalog;if(discovery)poster.discovery=discovery;
     if (title.posterUrl !== undefined && title.posterUrl !== '') {
       if (typeof title.posterUrl !== 'string' || title.posterUrl.length > 2048) throw new Error('Ссылка на постер должна быть не длиннее 2048 символов.');
       poster.posterUrl = httpsURL(title.posterUrl);

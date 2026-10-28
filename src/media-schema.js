@@ -1,3 +1,4 @@
+import {cinemaWebURL} from './cinema-services.js';
 import { subtitleCredit } from './subtitle-credit.js';
 const MAX_TEXT = 2 * 1024 * 1024;
 export function catalogIdentity(value) {
@@ -8,6 +9,7 @@ export function catalogIdentity(value) {
 export const PLAYER_HOSTS = Object.freeze(['old.yummyani.me', 'animejoy.ru', 'brogiro.cfd', 'g0e-1ka1v5q.troutcdn.site']);
 export function webPlayerURL(value) {
   const url = new URL(value);
+  if(['www.youtube.com','www.kinopoisk.ru','rutube.ru','vkvideo.ru','archive.org'].includes(url.hostname))return cinemaWebURL(value);
   if (url.protocol !== 'https:' || url.username || url.password || url.port || !PLAYER_HOSTS.includes(url.hostname)) throw new Error('Для страницы плеера поддерживаются HTTPS-ссылки Yummyani, AnimeJoy, Brogiro и указанный TroutCDN.');
   return url.href;
 }

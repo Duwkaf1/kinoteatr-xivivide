@@ -115,7 +115,7 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
     finally{if(serial===randomSerial){$('#catalog-random').disabled=false;$('#catalog-random').setAttribute('aria-busy','false');$('#catalog-random-label').textContent='Случайное аниме';}}
   };
   $('#close-release').onclick=()=>$('#release-dialog').close();
-  $('#release-dialog').addEventListener('close',()=>{posterDialogOpening=false;$('#release-art').replaceChildren();queueMicrotask(resumePosters);releaseSerial++;releaseRequest?.abort();opening=false;readyTitle=null;if(opener?.checkVisibility?.())opener.focus({preventScroll:true});else if(!$('#player-section').hidden){$('#playing-title').tabIndex=-1;$('#playing-title').focus({preventScroll:true});}});
+  $('#release-dialog').addEventListener('close',()=>{posterDialogOpening=false;$('#release-art').replaceChildren();queueMicrotask(resumePosters);releaseSerial++;releaseRequest?.abort();opening=false;readyTitle=null;if($('#release-dialog').returnValue==='search')return;if(opener?.checkVisibility?.())opener.focus({preventScroll:true});else if(!$('#player-section').hidden){$('#playing-title').tabIndex=-1;$('#playing-title').focus({preventScroll:true});}});
   function favoriteState(){const favorite=readyTitle&&state.favorites.includes(readyTitle.id);$('#catalog-favorite').setAttribute('aria-label',favorite?'Убрать из избранного':'В избранное');$('#catalog-favorite').title=favorite?'Убрать из избранного':'В избранное';$('#catalog-favorite').classList.toggle('is-favorite',Boolean(favorite));}
   function selection(){const progress=readyTitle&&progressFor(readyTitle);$('#catalog-play-label').textContent=selected?.provider==='yummyani'?'Смотреть на Yummyani':progress&&progress.episodeId===$('#catalog-episode').value&&progress.time>0?'Продолжить':'Смотреть';}
   $('#catalog-episode').onchange=selection;
@@ -128,7 +128,7 @@ export function catalogView({ $, node, state, onWatch, onFavorite, toast }) {
   async function openRelease(item,{autoPlay=false,episodeId}={}){
     posterDialogOpening=true;cancelPosters(true);opener=document.activeElement;releaseRequest?.abort();releaseRequest=new AbortController();const serial=++releaseSerial;selected=item;readyTitle=null;websiteReady=false;opening=true;
     metadata(item);$('.release-actions').classList.toggle('website-actions',item.provider==='yummyani');$('.release-voice').textContent=item.provider==='yummyani'?'Плееры и переводы сайта Yummyani':'Русская озвучка · AniLibria';$('#catalog-favorite').hidden=item.provider==='yummyani';$('#catalog-episode').closest('label').hidden=item.provider==='yummyani';$('#catalog-play').disabled=true;$('#catalog-favorite').disabled=true;$('#catalog-episode').replaceChildren();$('#release-progress').textContent='';$('#release-state').textContent='Загружаем серии…';
-    if(!$('#release-dialog').open)$('#release-dialog').showModal();
+    if(!$('#release-dialog').open){$('#release-dialog').returnValue='';$('#release-dialog').showModal();}
     try{
       const result=await api.release(item.id,{provider:item.provider||'anilibria',signal:releaseRequest.signal,fresh:autoPlay});if(serial!==releaseSerial)return;
       if(!result.item)throw new Error('Не удалось прочитать карточку аниме.');metadata(result.item);selected=result.item;

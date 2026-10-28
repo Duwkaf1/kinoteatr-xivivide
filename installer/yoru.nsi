@@ -94,7 +94,7 @@ Function WelcomePage
   ${NSD_CreateCheckbox} 0 103u 100% 16u "Добавить ярлык на рабочий стол"
   Pop $DesktopShortcut
   ${NSD_Check} $DesktopShortcut
-  ${NSD_CreateLabel} 0 133u 100% 30u "Каталог, поиск по жанрам и возрасту, случайное аниме и продолжение просмотра."
+  ${NSD_CreateLabel} 0 133u 100% 30u "Кино, сериалы и аниме. Поиск, своя библиотека и продолжение встроенного просмотра."
   Pop $0
   GetDlgItem $0 $HWNDPARENT 1
   SendMessage $0 ${WM_SETTEXT} 0 "STR:Установить"

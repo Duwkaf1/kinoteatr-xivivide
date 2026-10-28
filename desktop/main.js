@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, net, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
@@ -7,6 +7,7 @@ import { anidbPage } from '../src/anidb.js';
 import { animeId, webPlayerURL } from '../src/media-schema.js';
 import { boundedText } from '../src/subtitles.js';
 import { uninstallAvailability, uninstallHandler } from './uninstall.js';
+import {probeCinema,openCinemaService,externalCinemaLink} from './cinema-services.js';
 import { requestCatalog } from './catalog-network.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -43,7 +44,7 @@ else {
   app.on('second-instance', () => { if (mainWindow?.isMinimized()) mainWindow.restore(); mainWindow?.focus(); });
   app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
-      width: 1320, height: 900, minWidth: 640, minHeight: 480, title: 'Yoru — аниме', icon: windowIcon, backgroundColor: '#151617', autoHideMenuBar: true,
+      width: 1320, height: 900, minWidth: 640, minHeight: 480, title: 'Yoru — кино и аниме', icon: windowIcon, backgroundColor: '#151617', autoHideMenuBar: true,
       webPreferences: { preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     });
     mainWindow.on('closed', () => {
@@ -77,7 +78,10 @@ else {
       if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) return;
       if (typeof requestId === 'string') catalogRequests.get(requestId)?.abort();
     });
-    ipcMain.handle('player:open', (event, value) => { trusted(event); const url = webPlayerURL(value); openPlayerPage(new URL(url).hostname, url, `${new URL(url).hostname} · Yoru`); });
+    ipcMain.handle('cinema:open',async(event,data)=>{trusted(event);return openCinemaService(data,{openExternal:url=>shell.openExternal(url)});});
+    let cinemaProbe;let cinemaProbeTime=0;let cinemaProbeResult;
+    ipcMain.handle('cinema:probe',async event=>{trusted(event);if(cinemaProbe)return cinemaProbe;if(cinemaProbeResult&&Date.now()-cinemaProbeTime<30000)return cinemaProbeResult;cinemaProbe=probeCinema(net.fetch);try{cinemaProbeResult=await cinemaProbe;cinemaProbeTime=Date.now();return cinemaProbeResult;}finally{cinemaProbe=null;}});
+    ipcMain.handle('player:open', (event, value) => { trusted(event);const external=externalCinemaLink(value);if(external)return shell.openExternal(external); const url = webPlayerURL(value); openPlayerPage(new URL(url).hostname, url, `${new URL(url).hostname} · Yoru`); });
     ipcMain.handle('anidb:open', (event, data) => {
       trusted(event);
       const url = data?.wiki === true ? 'https://wiki.anidb.net/HTTP_API_Definition' : anidbPage(data?.id, data?.episodeId);

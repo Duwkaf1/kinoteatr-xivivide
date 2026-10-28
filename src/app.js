@@ -12,6 +12,8 @@ import { settingsControls } from './settings-controls.js';
 import { playbackLoading } from './playback-loading.js';
 import { playbackWatchdog } from './playback-watchdog.js';
 import { catalogView } from './catalog-view.js';
+import {cinemaView} from './cinema-view.js';
+import {CINEMA_SERVICES} from './cinema-services.js';
 import { bestCatalogQuality } from './anime-catalog.js';
 
 const $ = selector => document.querySelector(selector);
@@ -19,7 +21,7 @@ const loaded = loadState();
 const state = loaded.state;
 const preferences = loadPreferences();
 let writable = !loaded.error;
-let view = 'catalog';
+let view = 'catalog';let mediaKind='anime';let cinema;
 let active = null;
 let plan = null;
 let video = null;
@@ -83,9 +85,9 @@ function applyPreferences() {
   document.documentElement.style.setProperty('--subtitle-size', `${24 * preferences.watching.subtitleSize / 100}px`);
   document.documentElement.style.setProperty('--subtitle-bg', preferences.watching.subtitleBackground ? '#000b' : 'transparent');
   for (const input of document.querySelectorAll('input[name="theme"]')) input.checked = input.value === preferences.theme;
-  const label = { quality: 'Качество', balanced: 'Баланс', economy: 'Производительность', manual: 'Свои настройки' }[preferences.profile];
-  $('#footer-mode').textContent = `${label} · ${state.quality}p по умолчанию · Без скачивания серий`;
+  updateFooter();
 }
+function updateFooter(){const label={quality:'Качество',balanced:'Баланс',economy:'Производительность',manual:'Свои настройки'}[preferences.profile];$('#footer-mode').textContent=view==='catalog'&&mediaKind!=='anime'?'Качество и доступность видео определяет выбранный сервис':`${label} · ${state.quality}p по умолчанию · Без скачивания серий`;}
 function storePreferences() {
   try { savePreferences(preferences); $('#settings-save-status').textContent = 'Настройки сохранены'; }
   catch { $('#settings-save-status').textContent = 'Не удалось сохранить настройки. Проверь свободное место.'; toast('Настройки применены только до закрытия приложения: сохранение недоступно.'); }
@@ -193,11 +195,11 @@ function updateOverview() {
     const progress = state.progress[recent.id]; const ep = recent.episodes.find(e => e.id === progress.episodeId);
     $('#hero-eyebrow').textContent = 'ТВОЯ ИСТОРИЯ ПРОДОЛЖАЕТСЯ';
     $('#hero-title').textContent = recent.title;
-    $('#hero-description').textContent = `Серия ${ep.number} · остановился на ${Math.floor(progress.time / 60)}:${String(Math.floor(progress.time % 60)).padStart(2, '0')}. Вернись в историю с того же места.`;
+    $('#hero-description').textContent = `${recent.discovery?.media==='movie'?'Фильм':`Серия ${ep.number}`} · остановился на ${Math.floor(progress.time / 60)}:${String(Math.floor(progress.time % 60)).padStart(2, '0')}. Вернись в историю с того же места.`;
     $('#hero-button-label').textContent = 'Продолжить просмотр';
     $('#hero-caption').textContent = 'Прогресс сохранён на этом устройстве';
     $('#hero-button').onclick = () => openTitle(recent);
-  } else { $('#hero-button-label').textContent = 'Открыть каталог'; $('#hero-button').onclick = () => { changeView('catalog'); discovery.focus(); }; }
+  } else { $('#hero-button-label').textContent = 'Открыть каталог'; $('#hero-button').onclick = () => { changeView('catalog'); (mediaKind==='anime'?discovery:cinema).focus(); }; }
 }
 
 function renderLibrary() {
@@ -219,7 +221,7 @@ function renderLibrary() {
     const emptyIcon = node('div', undefined, 'empty-icon'); emptyIcon.append(icon(query ? 'search' : view === 'favorites' ? 'heart' : view === 'history' ? 'history' : 'library'));
     empty.append(emptyIcon, node('h2', query ? 'Ничего не нашлось' : view === 'library' ? 'Здесь начнётся твой следующий сеанс' : view === 'favorites' ? 'Любимые истории будут здесь' : 'История пока пуста'));
     empty.append(node('p', query ? 'Попробуй другое название.' : view === 'library' ? 'Открой каталог, найди свою историю и нажми «Смотреть». Постер и серии появятся автоматически.' : 'Открой аниме, чтобы продолжить.'));
-    if (view === 'library' && !query) { const button = node('button', undefined, 'primary'); button.append(icon('search'), node('span', 'Найти аниме')); button.onclick = () => { changeView('catalog'); discovery.focus(); }; empty.append(button); }
+    if (view === 'library' && !query) { const button = node('button', undefined, 'primary'); button.append(icon('search'), node('span', 'Найти историю')); button.onclick = () => { changeView('catalog'); (mediaKind==='anime'?discovery:cinema).focus(); }; empty.append(button); }
     fragment.append(empty);
   }
   for (const title of titles.slice(0, visibleCount)) {
@@ -254,7 +256,7 @@ function renderLibrary() {
     info.append(node('h3', title.title), favorite);
     const progress = Object.hasOwn(state.progress, title.id) ? state.progress[title.id] : null;
     const ep = title.episodes.find(e => e.id === progress?.episodeId);
-    info.append(node('p', ep ? `Серия ${ep.number} · ${Math.floor(progress.time / 60)} мин` : `${title.episodes.length} серий · ещё не смотрел`, 'muted'));
+    info.append(node('p',title.discovery?.media==='movie'?(ep?`Фильм · ${Math.floor(progress.time/60)} мин`:'Фильм · ещё не смотрел'):ep?`Серия ${ep.number} · ${Math.floor(progress.time/60)} мин`:`${title.episodes.length} серий · ещё не смотрел`,'muted'));
     const edit = node('button', undefined, 'poster-edit'); edit.append(icon('image'), node('span', 'Обложка'));
     edit.setAttribute('aria-label', `Изменить постер: ${title.title}`);
     edit.onclick = () => openPoster(title);
@@ -279,23 +281,25 @@ function changeView(next, focus = true) {
     item.classList.toggle('active', selected);
     if (selected) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
   }
-  $('#view-title').textContent = viewInfo[view][0]; $('#view-description').textContent = viewInfo[view][1];
+  $('#content-kind').textContent=mediaKind==='anime'?'Аниме':mediaKind==='movie'?'Фильмы':'Сериалы';
+  $('#view-title').textContent = view==='catalog'&&mediaKind!=='anime'?(mediaKind==='movie'?'Кино для твоего вечера':'Сериалы, в которые хочется вернуться'):viewInfo[view][0]; $('#view-description').textContent = view==='catalog'&&mediaKind!=='anime'?'Найди историю и выбери, где её смотреть.':viewInfo[view][1];
   const libraryVisible = ['library', 'favorites', 'history'].includes(view);
-  $('#catalog-view').hidden = view !== 'catalog'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
+  $('#catalog-switcher').hidden=view!=='catalog';$('#cinema-view').hidden=view!=='catalog'||mediaKind==='anime';
+  $('#catalog-view').hidden = view !== 'catalog'||mediaKind!=='anime'; $('#library-view').hidden = !libraryVisible; $('#search-label').hidden = !libraryVisible;
   $('#settings-view').hidden = view !== 'settings';
   $('.page-heading').hidden = view === 'watch';
   $('#return-player').hidden = !active || view === 'watch';
   $('#browse-button').hidden = view === 'catalog';
-  if (active?.title.catalog) $('#player-section').hidden = view !== 'watch';
+  if (active?.title.catalog||active?.title.discovery) $('#player-section').hidden = view !== 'watch';
   $('#hero').hidden = view !== 'library' || !preferences.interface.showHero || preferences.profile === 'economy';
   $('main').scrollTop = 0;
   if (focus) $('#view-title').focus({ preventScroll: true });
-  if (view === 'catalog') discovery?.activate(); else discovery?.pauseSearch();
-  renderLibrary(); loading.refresh(); reveal(view === 'catalog' ? $('#catalog-view') : view === 'settings' ? $('#settings-view') : view === 'watch' ? $('#player-section') : $('#library-view'));
+  if(view==='catalog'){if(mediaKind==='anime'){cinema?.pauseSearch();discovery?.activate();}else{discovery?.pauseSearch();cinema?.activate();}}else{discovery?.pauseSearch();cinema?.pauseSearch();}
+  updateFooter();renderLibrary(); loading.refresh(); reveal(view === 'catalog' ? $(mediaKind==='anime'?'#catalog-view':'#cinema-view') : view === 'settings' ? $('#settings-view') : view === 'watch' ? $('#player-section') : $('#library-view'));
 }
 for (const button of document.querySelectorAll('[data-view]')) { button.title = button.getAttribute('aria-label'); button.onclick = () => changeView(button.dataset.view); }
 $('#home-button').onclick = () => changeView('catalog');
-$('#browse-button').onclick = () => { changeView('catalog'); discovery.focus(); };
+$('#browse-button').onclick = () => { changeView('catalog'); (mediaKind==='anime'?discovery:cinema).focus(); };
 $('#return-player').onclick = () => changeView('watch');
 $('#load-more').onclick = () => { visibleCount += pageSize(); renderLibrary(); };
 $('#sort').onchange = () => { visibleCount = pageSize(); renderLibrary(); };
@@ -447,6 +451,7 @@ function episodeButtons() {
   $('#next-button').disabled = active.title.episodes.indexOf(active.episode) === active.title.episodes.length - 1;
 }
 function openTitle(title) {
+  if(title.discovery){setMediaKind(title.discovery.media);cinema.playSaved(title);return;}
   if (title.catalog) { discovery.playSaved(title); return; }
   const progress = Object.hasOwn(state.progress, title.id) ? state.progress[title.id] : null;
   const episode = title.episodes.find(ep => ep.id === progress?.episodeId) ?? title.episodes[0];
@@ -457,7 +462,8 @@ function startEpisode(title, episode, time, session = {}) {
   active.watching.originalLanguage = episodeOriginalLanguage(episode, active.quality, session.preferredSourceId);
   resumeAt = time; plan = new PlaybackPlan(episode.sources, active.quality, { ...active.recovery, ...active.watching, preferredSourceId: session.preferredSourceId });
   $('#player-section').hidden = false;
-  $('#playing-title').textContent = `${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
+  $('#next-button').hidden=title.discovery?.media==='movie';$('#episode-picker').hidden=title.discovery?.media==='movie';
+  $('#playing-title').textContent = title.discovery?.media==='movie'?title.title:`${title.title} · ${episode.season ? `Сезон ${episode.season} · ` : ''}Серия ${episode.number}`;
   $('#quality').value = String(active.quality); $('#watch-audio-mode').value = active.watching.audioMode; $('#retry-button').hidden = true; episodeButtons();
   for (const option of $('#quality').options) option.disabled = Boolean(title.catalog) && !episode.sources.some(source => source.quality === Number(option.value));
   for (const option of $('#watch-audio-mode').options) option.disabled = !episode.sources.some(source => option.value === 'original' ? source.audioType === 'original' : source.audioType !== 'original' && source.language === 'ru');
@@ -467,7 +473,7 @@ function startEpisode(title, episode, time, session = {}) {
   reveal($('#player-section'));
   $('#player-section').scrollIntoView({ behavior: motionEnabled() ? 'smooth' : 'instant', block: 'start' });
   startSource();
-  casts?.episodeChanged();
+  $('#cast-panel').hidden=Boolean(title.discovery);if(!title.discovery)casts?.episodeChanged();
 }
 function restartSource(preferredSourceId = plan?.current?.id, quality = active?.quality) {
   if (!active) return;
@@ -479,7 +485,7 @@ function nextEpisode() {
   const next = active.title.episodes[active.title.episodes.indexOf(active.episode) + 1];
   if (next && active.title.catalog && Date.now() - (catalogFreshness.get(active.title.id) || 0) > 300000) discovery.playSaved(active.title, { episodeId: next.id });
   else if (next) startEpisode(active.title, next, 0, active.title.catalog ? { quality: bestCatalogQuality(next, state.quality), audioMode: 'dub' } : {});
-  else status('Все доступные серии просмотрены.');
+  else status(active.title.discovery?.media==='movie'?'Фильм закончился.':'Все доступные серии просмотрены.');
 }
 
 async function startSource(retryDeadline) {
@@ -533,7 +539,7 @@ async function startSource(retryDeadline) {
     recordProgress();
   });
   on('seeked', () => { resumeAt = element.currentTime; watchdog.seek(resumeAt); recordProgress(true); });
-  on('ended', () => { watchdog.pause(); recordProgress(true); if (preferences.autoNext) nextEpisode(); else status('Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
+  on('ended', () => { watchdog.pause(); recordProgress(true); if (preferences.autoNext) nextEpisode(); else status(active.title.discovery?.media==='movie'?'Фильм закончился.':'Серия закончилась. Нажми «Следующая серия», когда будешь готов.'); });
   on('error', () => { if (!hls) fail(); });
   on('loadedmetadata', () => {
     if (active.session.paused) { watchdog.pause(); loading.hide(); }
@@ -643,7 +649,11 @@ discovery = catalogView({ $, node, state, toast,
   onWatch(title, episode, time, quality) { recordProgress(true); const saved = retainCatalogTitle(title); catalogFreshness.set(title.id, Date.now()); changeView('watch'); startEpisode(title, episode, time, { quality, audioMode: 'dub' }); if (!saved) toast('Просмотр доступен, но прогресс может не сохраниться: проверь свободное место.'); },
   onFavorite(title) { retainCatalogTitle(title); state.favorites = state.favorites.includes(title.id) ? state.favorites.filter(id => id !== title.id) : [...state.favorites, title.id]; persist(); updateOverview(); },
 });
-document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); changeView('catalog'); discovery.focus(); } });
+cinema=cinemaView({$,node,state,toast,onWatch(title,episode,time,quality){recordProgress(true);retainCatalogTitle(title);changeView('watch');startEpisode(title,episode,time,{quality,audioMode:'original'});},onFavorite(title){retainCatalogTitle(title);state.favorites=state.favorites.includes(title.id)?state.favorites.filter(id=>id!==title.id):[...state.favorites,title.id];persist();updateOverview();}});
+function setMediaKind(kind){mediaKind=kind;for(const tab of document.querySelectorAll('[data-media-kind]'))tab.setAttribute('aria-pressed',String(tab.dataset.mediaKind===kind));if(kind!=='anime')cinema?.setMedia(kind);}
+for(const button of document.querySelectorAll('[data-media-kind]'))button.onclick=()=>{setMediaKind(button.dataset.mediaKind);changeView('catalog');};
+$('#probe-cinema').onclick=async()=>{const button=$('#probe-cinema');if(!window.kadr?.probeCinema){$('#cinema-network-results').textContent='Проверка доступна в Windows-приложении Yoru.';return;}button.disabled=true;$('#cinema-network-results').textContent='Проверяем соединение…';try{const result=await window.kadr.probeCinema();$('#cinema-network-results').replaceChildren(node('p',`Проверено в ${new Date(result.checkedAt).toLocaleTimeString('ru-RU')}`),...result.results.map(item=>node('p',`${CINEMA_SERVICES[item.service]?.name||({cinemeta:'Каталог фильмов',tvmaze:'Каталог сериалов',archive:'Internet Archive'})[item.service]}: ${item.status==='reachable'?'страница доступна':item.status==='restricted'?'доступ ограничен или нужен вход':'соединение не подтверждено'}`)));}catch{$('#cinema-network-results').textContent='Не удалось завершить проверку. Попробуй позже.';}finally{button.disabled=false;}};
+document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault();for(const dialog of [$('#cinema-dialog'),$('#release-dialog')])if(dialog.open)dialog.close('search'); changeView('catalog'); (mediaKind==='anime'?discovery:cinema).focus(); } });
 changeView('catalog', false);
 if (loaded.error) toast(loaded.error);
 
